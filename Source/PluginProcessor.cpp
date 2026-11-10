@@ -250,3 +250,7 @@ void IronCompressorAudioProcessor::setStateInformation (const void* data, int si
     if (xmlState != nullptr && xmlState->hasTagName (apvts.state.getType()))
         apvts.replaceState (juce::ValueTree::fromXml (*xmlState));
 }
+juce::AudioProcessor* JUCE_CALLTYPE createPluginFilter()
+{
+    return new IronCompressorAudioProcessor();
+}
