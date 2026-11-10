@@ -8,7 +8,7 @@ on:
 jobs:
   build:
     name: Build macOS VST3 & AU
-    runs-on: macos-14
+    runs-on: macos-latest
     
     steps:
     - name: Checkout code
