@@ -1,0 +1,42 @@
+name: CI/CD Build VST3 and AU
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build:
+    name: Build macOS VST3 & AU
+    runs-on: macos-14
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        submodules: recursive
+
+    - name: Install Ninja
+      run: brew install ninja
+
+    - name: Configure CMake
+      run: |
+        cmake -B build -G "Ninja" \
+          -DCMAKE_BUILD_TYPE=Release \
+          -DJUCE_BUILD_EXT_VST3=ON \
+          -DJUCE_BUILD_EXT_AU=ON
+
+    - name: Build Plugin
+      run: cmake --build build --config Release
+
+    - name: Package Artifacts
+      run: |
+        mkdir -p artifacts
+        cd build/CompressorAnalogIRON_artefacts/Release
+        zip -r ../../../artifacts/Compressor-Analog-IRON-Mac.zip VST3/ AU/ || zip -r ../../../artifacts/Compressor-Analog-IRON-Mac.zip VST3/
+
+    - name: Upload Artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: Compressor-Analog-IRON-Mac
+        path: artifacts/Compressor-Analog-IRON-Mac.zip
