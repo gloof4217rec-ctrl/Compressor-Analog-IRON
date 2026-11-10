@@ -34,6 +34,8 @@ target_sources(CompressorAnalogIRON PRIVATE
 
 target_compile_features(CompressorAnalogIRON PRIVATE cxx_std_17)
 
+target_compile_definitions(CompressorAnalogIRON PRIVATE JUCE_IGNORE_VST3_MISMATCHED_PARAMETER_ID_WARNING=1)
+
 target_link_libraries(CompressorAnalogIRON PRIVATE
     juce::juce_audio_utils
     juce::juce_audio_processors
