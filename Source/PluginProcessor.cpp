@@ -16,81 +16,59 @@ IronCompressorAudioProcessor::createParameterLayout()
 {
     std::vector<std::unique_ptr<juce::RangedAudioParameter>> params;
 
-    // Input / Output Gain
-    params.push_back (std::make_unique<juce::AudioParameterFloat> (
-        "inputGain", "Input", juce::NormalisableRange<float> (-12.0f, 12.0f, 0.1f), 0.0f));
-    params.push_back (std::make_unique<juce::AudioParameterFloat> (
-        "outputGain", "Output", juce::NormalisableRange<float> (-12.0f, 12.0f, 0.1f), 0.0f));
+    params.push_back (std::make_unique<juce::AudioParameterFloat> ("inputGain", "Input", juce::NormalisableRange<float> (-12.0f, 12.0f, 0.1f), 0.0f));
+    params.push_back (std::make_unique<juce::AudioParameterFloat> ("outputGain", "Output", juce::NormalisableRange<float> (-12.0f, 12.0f, 0.1f), 0.0f));
+    params.push_back (std::make_unique<juce::AudioParameterFloat> ("threshold", "Threshold", juce::NormalisableRange<float> (-40.0f, 0.0f, 0.1f), -10.0f));
+    
+    // Раздельный Tube Bias для L и R каналов
+    params.push_back (std::make_unique<juce::AudioParameterChoice> ("biasL", "Bias L", juce::StringArray { "Low", "Mid", "High" }, 0));
+    params.push_back (std::make_unique<juce::AudioParameterChoice> ("biasR", "Bias R", juce::StringArray { "Low", "Mid", "High" }, 0));
 
-    // Threshold
-    params.push_back (std::make_unique<juce::AudioParameterFloat> (
-        "threshold", "Threshold", juce::NormalisableRange<float> (-40.0f, 0.0f, 0.1f), -10.0f));
+    juce::StringArray rectifiers { "Germanium 1mF", "Germanium 2mF", "LED 3.3mF", "Silicon 330nF", "Germanium 220nF", "Silicon/Germanium 100nF" };
+    params.push_back (std::make_unique<juce::AudioParameterChoice> ("rectifier", "Rectifier", rectifiers, 2));
 
-    // Tube Bias (Low, Mid, High)
-    params.push_back (std::make_unique<juce::AudioParameterChoice> (
-        "bias", "Tube Bias", juce::StringArray { "Low", "Mid", "High" }, 0));
-
-    // Rectifier (Влияет на скорость)
-    juce::StringArray rectifiers { "Germanium 1mF", "Germanium 2mF", "LED 3.3mF",
-                                   "Silicon 330nF", "Germanium 220nF", "Silicon/Germanium 100nF" };
-    params.push_back (std::make_unique<juce::AudioParameterChoice> (
-        "rectifier", "Rectifier", rectifiers, 2)); // По умолчанию LED
-
-    // Attack / Release
     juce::StringArray attacks { "0.1 ms", "0.2 ms", "0.5 ms", "1 ms", "2 ms", "5 ms" };
-    params.push_back (std::make_unique<juce::AudioParameterChoice> (
-        "attack", "Attack", attacks, 2));
+    params.push_back (std::make_unique<juce::AudioParameterChoice> ("attack", "Attack", attacks, 2));
 
     juce::StringArray releases { "200 ms", "300 ms", "500 ms", "1 s", "2 s", "5 s" };
-    params.push_back (std::make_unique<juce::AudioParameterChoice> (
-        "release", "Release", releases, 2));
+    params.push_back (std::make_unique<juce::AudioParameterChoice> ("release", "Release", releases, 2));
 
-    // Sidechain EQ (Off, Presets, Ext)
-    juce::StringArray scEQs { "Off (20Hz HPF)", "Preset 1", "Preset 2", "Preset 3", "Preset 4", "External" };
-    params.push_back (std::make_unique<juce::AudioParameterChoice> (
-        "sidechainEq", "Sidechain EQ", scEQs, 0));
+    juce::StringArray scEQs { "Off", "Preset 1", "Preset 2", "Preset 3", "Preset 4" };
+    params.push_back (std::make_unique<juce::AudioParameterChoice> ("sidechainEq", "Sidechain EQ", scEQs, 0));
 
-    // Parallel Mix
-    params.push_back (std::make_unique<juce::AudioParameterFloat> (
-        "mix", "Mix", juce::NormalisableRange<float> (0.0f, 1.0f, 0.01f), 1.0f));
+    params.push_back (std::make_unique<juce::AudioParameterFloat> ("mix", "Mix", juce::NormalisableRange<float> (0.0f, 1.0f, 0.01f), 1.0f));
+    
+    // Стерео-расширение и Моно-мейкер
+    params.push_back (std::make_unique<juce::AudioParameterFloat> ("stereoWidth", "Width", juce::NormalisableRange<float> (0.0f, 2.0f, 0.01f), 1.0f));
+    params.push_back (std::make_unique<juce::AudioParameterFloat> ("monoMaker", "Mono Maker", juce::NormalisableRange<float> (0.0f, 300.0f, 1.0f), 0.0f));
+
+    // AirBass / Tape
+    params.push_back (std::make_unique<juce::AudioParameterChoice> ("airBass", "Air/Bass", juce::StringArray { "Bypass", "AirBass", "Tape Roll-Off" }, 0));
 
     return { params.begin(), params.end() };
 }
 
-void IronCompressorAudioProcessor::prepareToPlay (double sampleRate, int /*samplesPerBlock*/)
+void IronCompressorAudioProcessor::prepareToPlay (double sampleRate, int)
 {
     sr = sampleRate;
-    
-    // Инициализация фильтров
-    auto hpCoeffs = juce::dsp::IIR::Coefficients<float>::makeHighPass (sr, 20.0);
-    for (int ch = 0; ch < 2; ++ch) {
-        sidechainHPF[ch].coefficients = hpCoeffs;
-        sidechainPreset[ch].coefficients = hpCoeffs; // Заглушка, обновится в processBlock
-    }
-
-    inputGainSmoothed .reset (sr, 0.02);
+    inputGainSmoothed.reset (sr, 0.02);
     outputGainSmoothed.reset (sr, 0.02);
-    mixSmoothed       .reset (sr, 0.02);
-
+    mixSmoothed.reset (sr, 0.02);
     envelope.fill (0.0f);
     lastSidechainMode = -1;
+    lastAirBassMode = -1;
     updateTimingCoefficients();
 }
 
 void IronCompressorAudioProcessor::releaseResources() {}
-
-bool IronCompressorAudioProcessor::isBusesLayoutSupported (const BusesLayout& layouts) const
-{
-    return layouts.getMainInputChannelSet() == juce::AudioChannelSet::stereo()
-        && layouts.getMainOutputChannelSet() == juce::AudioChannelSet::stereo();
+bool IronCompressorAudioProcessor::isBusesLayoutSupported (const BusesLayout& layouts) const {
+    return layouts.getMainInputChannelSet() == juce::AudioChannelSet::stereo() && layouts.getMainOutputChannelSet() == juce::AudioChannelSet::stereo();
 }
 
 void IronCompressorAudioProcessor::updateTimingCoefficients()
 {
     static constexpr float attackMs[6]  { 0.1f, 0.2f, 0.5f, 1.0f, 2.0f, 5.0f };
     static constexpr float releaseMs[6] { 200.0f, 300.0f, 500.0f, 1000.0f, 2000.0f, 5000.0f };
-
-    // LED (индекс 2) - самый медленный, Silicon (индекс 3) - самый быстрый
     static constexpr float rectAttackFactor[6]  { 1.3f, 1.1f, 1.5f, 0.6f, 1.0f, 0.8f };
     static constexpr float rectReleaseFactor[6] { 1.4f, 1.2f, 1.8f, 0.5f, 0.9f, 0.7f };
 
@@ -105,6 +83,29 @@ void IronCompressorAudioProcessor::updateTimingCoefficients()
     releaseCoeff = std::exp (-1.0f / (releaseSec * (float) sr));
 }
 
+void IronCompressorAudioProcessor::updateFilters(int scMode, int airBassMode)
+{
+    if (scMode != lastSidechainMode) {
+        for (int ch = 0; ch < 2; ++ch) {
+            if (scMode == 0) sidechainFilter[ch].coefficients = juce::dsp::IIR::Coefficients<float>::makeHighPass(sr, 20.0);
+            else if (scMode == 1) sidechainFilter[ch].coefficients = juce::dsp::IIR::Coefficients<float>::makeLowShelf(sr, 200.0, 0.7f, 0.5f); // Пример
+            // ... остальные пресеты ...
+        }
+        lastSidechainMode = scMode;
+    }
+    
+    if (airBassMode != lastAirBassMode) {
+        for (int ch = 0; ch < 2; ++ch) {
+            if (airBassMode == 1) { // AirBass (Подъем низов и верхов)
+                airBassFilter[ch].coefficients = juce::dsp::IIR::Coefficients<float>::makeHighShelf(sr, 10000.0, 0.7f, 2.0f); // Упрощенно
+            } else if (airBassMode == 2) { // Tape
+                airBassFilter[ch].coefficients = juce::dsp::IIR::Coefficients<float>::makeLowPass(sr, 15000.0); // Упрощенно
+            }
+        }
+        lastAirBassMode = airBassMode;
+    }
+}
+
 void IronCompressorAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::MidiBuffer&)
 {
     juce::ScopedNoDenormals noDenormals;
@@ -112,116 +113,116 @@ void IronCompressorAudioProcessor::processBlock (juce::AudioBuffer<float>& buffe
     const int numSamples  = buffer.getNumSamples();
     if (numChannels < 2 || numSamples == 0) return;
 
-    const float thresholdDb = apvts.getRawParameterValue ("threshold")->load();
-    const int biasIdx       = apvts.getRawParameterValue ("bias")->load();
-    const float mix         = apvts.getRawParameterValue ("mix")->load();
-    const float inGainDb    = apvts.getRawParameterValue ("inputGain")->load();
-    const float outGainDb   = apvts.getRawParameterValue ("outputGain")->load();
-    
-    const int scMode = apvts.getRawParameterValue ("sidechainEq")->load();
-    
-    // Обновляем фильтры Sidechain, если режим изменился
-    if (scMode != lastSidechainMode) {
-        for (int ch = 0; ch < 2; ++ch) {
-            if (scMode == 0) { // Off (20Hz HPF)
-                sidechainPreset[ch].coefficients = juce::dsp::IIR::Coefficients<float>::makeHighPass(sr, 20.0);
-            } else if (scMode == 1) { // Preset 1 (High shelf boost для меньшего сжатия баса)
-                sidechainPreset[ch].coefficients = juce::dsp::IIR::Coefficients<float>::makeLowShelf(sr, 200.0, 0.7f, 2.0f);
-            } else if (scMode == 2) { // Preset 2
-                sidechainPreset[ch].coefficients = juce::dsp::IIR::Coefficients<float>::makeHighPass(sr, 100.0);
-            } else {
-                sidechainPreset[ch].coefficients = juce::dsp::IIR::Coefficients<float>::makeHighPass(sr, 20.0);
-            }
-        }
-        lastSidechainMode = scMode;
+    const float thresholdDb = apvts.getRawParameterValue("threshold")->load();
+    const int biasIdxL      = apvts.getRawParameterValue("biasL")->load();
+    const int biasIdxR      = apvts.getRawParameterValue("biasR")->load();
+    const float mix         = apvts.getRawParameterValue("mix")->load();
+    const float inGainDb    = apvts.getRawParameterValue("inputGain")->load();
+    const float outGainDb   = apvts.getRawParameterValue("outputGain")->load();
+    const float width       = apvts.getRawParameterValue("stereoWidth")->load();
+    const float monoFreq    = apvts.getRawParameterValue("monoMaker")->load();
+    const int scMode        = apvts.getRawParameterValue("sidechainEq")->load();
+    const int airBassMode   = apvts.getRawParameterValue("airBass")->load();
+
+    updateFilters(scMode, airBassMode);
+
+    // Моно-мейкер (применяется к Side-каналу)
+    if (monoFreq > 20.0f) {
+        auto monoCoeffs = juce::dsp::IIR::Coefficients<float>::makeHighPass(sr, monoFreq);
+        for (int ch = 0; ch < 2; ++ch) monoMakerFilter[ch].coefficients = monoCoeffs;
     }
 
-    const float inGain  = dbToGain (inGainDb);
-    const float outGain = dbToGain (outGainDb);
+    const float inGain  = dbToGain(inGainDb);
+    const float outGain = dbToGain(outGainDb);
 
-    inputGainSmoothed .setTargetValue (inGain);
-    outputGainSmoothed.setTargetValue (outGain);
-    mixSmoothed       .setTargetValue (mix);
+    inputGainSmoothed .setTargetValue(inGain);
+    outputGainSmoothed.setTargetValue(outGain);
+    mixSmoothed       .setTargetValue(mix);
 
     updateTimingCoefficients();
 
-    // Bias Multiplier (Low = 0.5, Mid = 1.0, High = 2.0) - влияет на силу сжатия
-    const float biasMult = (biasIdx == 0) ? 0.5f : ((biasIdx == 1) ? 1.0f : 2.0f);
+    const float biasMultL = (biasIdxL == 0) ? 0.5f : ((biasIdxL == 1) ? 1.0f : 2.0f);
+    const float biasMultR = (biasIdxR == 0) ? 0.5f : ((biasIdxR == 1) ? 1.0f : 2.0f);
+    
+    float maxGRL = 0.0f;
+    float maxGRR = 0.0f;
 
     for (int n = 0; n < numSamples; ++n)
     {
-        const float curInGain  = inputGainSmoothed .getNextValue();
-        const float curOutGain = outputGainSmoothed.getNextValue();
-        const float curMix     = mixSmoothed       .getNextValue();
+        float curInGain = inputGainSmoothed.getNextValue();
+        float curOutGain = outputGainSmoothed.getNextValue();
+        float curMix = mixSmoothed.getNextValue();
 
-        // Детектор огибающей
-        float sidechainSample = 0.0f;
-        for (int ch = 0; ch < 2; ++ch)
-        {
-            float s = buffer.getSample (ch, n) * curInGain;
-            s = sidechainPreset[ch].processSample (s); // Применяем Sidechain EQ
-            sidechainSample = juce::jmax (sidechainSample, std::abs (s));
+        float inL = buffer.getSample(0, n) * curInGain;
+        float inR = buffer.getSample(1, n) * curInGain;
+
+        // 1. Mid/Side и Mono Maker
+        float mid = (inL + inR) * 0.5f;
+        float side = (inL - inR) * 0.5f;
+        if (monoFreq > 20.0f) side = monoMakerFilter[0].processSample(side);
+        side *= width;
+        inL = mid + side;
+        inR = mid - side;
+
+        // 2. Sidechain детектор
+        float scL = sidechainFilter[0].processSample(inL);
+        float scR = sidechainFilter[1].processSample(inR);
+        
+        float envL = envelope[0];
+        float envR = envelope[1];
+        
+        if (std::abs(scL) > envL) envL = attackCoeff * envL + (1.0f - attackCoeff) * std::abs(scL);
+        else envL = releaseCoeff * envL + (1.0f - releaseCoeff) * std::abs(scL);
+        
+        if (std::abs(scR) > envR) envR = attackCoeff * envR + (1.0f - attackCoeff) * std::abs(scR);
+        else envR = releaseCoeff * envR + (1.0f - releaseCoeff) * std::abs(scR);
+        
+        envelope[0] = envL;
+        envelope[1] = envR;
+
+        // 3. Вычисление CV
+        const float threshLin = dbToGain(thresholdDb);
+        float cvL = (envL > threshLin) ? juce::jlimit(0.0f, 1.0f, ((envL / threshLin) - 1.0f) * biasMultL) : 0.0f;
+        float cvR = (envR > threshLin) ? juce::jlimit(0.0f, 1.0f, ((envR / threshLin) - 1.0f) * biasMultR) : 0.0f;
+
+        // Сохраняем GR для UI (в дБ)
+        maxGRL = juce::jmax(maxGRL, cvL);
+        maxGRR = juce::jmax(maxGRR, cvR);
+
+        // 4. Лампы и выход
+        float dryL = buffer.getSample(0, n);
+        float dryR = buffer.getSample(1, n);
+
+        float wetL = std::tanh(inL * (1.0f - 0.6f * cvL));
+        float wetR = std::tanh(inR * (1.0f - 0.6f * cvR));
+
+        if (airBassMode > 0) {
+            wetL = airBassFilter[0].processSample(wetL);
+            wetR = airBassFilter[1].processSample(wetR);
         }
 
-        float& env = envelope[0];
-        if (sidechainSample > env)
-            env = attackCoeff  * env + (1.0f - attackCoeff)  * sidechainSample;
-        else
-            env = releaseCoeff * env + (1.0f - releaseCoeff) * sidechainSample;
+        float outL = (dryL * (1.0f - curMix)) + (wetL * curMix);
+        float outR = (dryR * (1.0f - curMix)) + (wetR * curMix);
 
-        // Вычисление Control Voltage (управляющего напряжения)
-        const float threshLin = dbToGain (thresholdDb);
-        float cv = 0.0f;
-        if (env > threshLin)
-        {
-            const float over = env / juce::jmax (threshLin, 1e-6f);
-            cv = (over - 1.0f) * biasMult; // Убрали Ratio, теперь сила зависит от Bias
-            cv = juce::jlimit (0.0f, 1.0f, cv);
-        }
-
-        for (int ch = 0; ch < 2; ++ch)
-        {
-            const float dry = buffer.getSample (ch, n);
-            float x = dry * curInGain;
-
-            // Параллельные лампы
-            const float tubeAGain = 1.0f - 0.6f * cv; // 12AU7 (Remote cutoff)
-            float tubeA = std::tanh (x * tubeAGain);
-
-            float tubeB = std::tanh (x * 1.8f + 0.2f * cv); // 12AX7 (Sharp cutoff)
-            tubeB *= 0.7f;
-
-            float wet = 0.6f * tubeA + 0.4f * tubeB;
-            wet = std::tanh (wet * 1.1f); // Трансформатор
-
-            wet *= curOutGain;
-            const float out = dry * (1.0f - curMix) + wet * curMix;
-
-            buffer.setSample (ch, n, out);
-        }
+        buffer.setSample(0, n, outL * curOutGain);
+        buffer.setSample(1, n, outR * curOutGain);
     }
+
+    // Записываем пиковое значение сжатия для UI
+    currentGRL.store(maxGRL);
+    currentGRR.store(maxGRR);
 }
 
-juce::AudioProcessorEditor* IronCompressorAudioProcessor::createEditor()
-{
-    return new IronCompressorAudioProcessorEditor (*this);
-}
-
-void IronCompressorAudioProcessor::getStateInformation (juce::MemoryBlock& destData)
-{
+juce::AudioProcessorEditor* IronCompressorAudioProcessor::createEditor() { return new IronCompressorAudioProcessorEditor (*this); }
+void IronCompressorAudioProcessor::getStateInformation (juce::MemoryBlock& destData) {
     auto state = apvts.copyState();
     std::unique_ptr<juce::XmlElement> xml (state.createXml());
     copyXmlToBinary (*xml, destData);
 }
-
-void IronCompressorAudioProcessor::setStateInformation (const void* data, int sizeInBytes)
-{
+void IronCompressorAudioProcessor::setStateInformation (const void* data, int sizeInBytes) {
     std::unique_ptr<juce::XmlElement> xmlState (getXmlFromBinary (data, sizeInBytes));
     if (xmlState != nullptr && xmlState->hasTagName (apvts.state.getType()))
         apvts.replaceState (juce::ValueTree::fromXml (*xmlState));
 }
 
-juce::AudioProcessor* JUCE_CALLTYPE createPluginFilter()
-{
-    return new IronCompressorAudioProcessor();
-}
+juce::AudioProcessor* JUCE_CALLTYPE createPluginFilter() { return new IronCompressorAudioProcessor(); }
