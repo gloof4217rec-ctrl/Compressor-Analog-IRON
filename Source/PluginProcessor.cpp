@@ -20,7 +20,6 @@ IronCompressorAudioProcessor::createParameterLayout()
     params.push_back (std::make_unique<juce::AudioParameterFloat> ("outputGain", "Output", juce::NormalisableRange<float> (-12.0f, 12.0f, 0.1f), 0.0f));
     params.push_back (std::make_unique<juce::AudioParameterFloat> ("threshold", "Threshold", juce::NormalisableRange<float> (-40.0f, 0.0f, 0.1f), -10.0f));
     
-    // Раздельный Tube Bias для L и R каналов
     params.push_back (std::make_unique<juce::AudioParameterChoice> ("biasL", "Bias L", juce::StringArray { "Low", "Mid", "High" }, 0));
     params.push_back (std::make_unique<juce::AudioParameterChoice> ("biasR", "Bias R", juce::StringArray { "Low", "Mid", "High" }, 0));
 
@@ -38,11 +37,9 @@ IronCompressorAudioProcessor::createParameterLayout()
 
     params.push_back (std::make_unique<juce::AudioParameterFloat> ("mix", "Mix", juce::NormalisableRange<float> (0.0f, 1.0f, 0.01f), 1.0f));
     
-    // Стерео-расширение и Моно-мейкер
     params.push_back (std::make_unique<juce::AudioParameterFloat> ("stereoWidth", "Width", juce::NormalisableRange<float> (0.0f, 2.0f, 0.01f), 1.0f));
     params.push_back (std::make_unique<juce::AudioParameterFloat> ("monoMaker", "Mono Maker", juce::NormalisableRange<float> (0.0f, 300.0f, 1.0f), 0.0f));
 
-    // AirBass / Tape
     params.push_back (std::make_unique<juce::AudioParameterChoice> ("airBass", "Air/Bass", juce::StringArray { "Bypass", "AirBass", "Tape Roll-Off" }, 0));
 
     return { params.begin(), params.end() };
@@ -88,18 +85,19 @@ void IronCompressorAudioProcessor::updateFilters(int scMode, int airBassMode)
     if (scMode != lastSidechainMode) {
         for (int ch = 0; ch < 2; ++ch) {
             if (scMode == 0) sidechainFilter[ch].coefficients = juce::dsp::IIR::Coefficients<float>::makeHighPass(sr, 20.0);
-            else if (scMode == 1) sidechainFilter[ch].coefficients = juce::dsp::IIR::Coefficients<float>::makeLowShelf(sr, 200.0, 0.7f, 0.5f); // Пример
-            // ... остальные пресеты ...
+            else if (scMode == 1) sidechainFilter[ch].coefficients = juce::dsp::IIR::Coefficients<float>::makeLowShelf(sr, 200.0, 0.7f, 0.5f); 
+            // Добавим заглушки для остальных, чтобы не было ошибок
+            else sidechainFilter[ch].coefficients = juce::dsp::IIR::Coefficients<float>::makeHighPass(sr, 20.0);
         }
         lastSidechainMode = scMode;
     }
     
     if (airBassMode != lastAirBassMode) {
         for (int ch = 0; ch < 2; ++ch) {
-            if (airBassMode == 1) { // AirBass (Подъем низов и верхов)
-                airBassFilter[ch].coefficients = juce::dsp::IIR::Coefficients<float>::makeHighShelf(sr, 10000.0, 0.7f, 2.0f); // Упрощенно
+            if (airBassMode == 1) { // AirBass
+                airBassFilter[ch].coefficients = juce::dsp::IIR::Coefficients<float>::makeHighShelf(sr, 10000.0, 0.7f, 2.0f);
             } else if (airBassMode == 2) { // Tape
-                airBassFilter[ch].coefficients = juce::dsp::IIR::Coefficients<float>::makeLowPass(sr, 15000.0); // Упрощенно
+                airBassFilter[ch].coefficients = juce::dsp::IIR::Coefficients<float>::makeLowPass(sr, 15000.0);
             }
         }
         lastAirBassMode = airBassMode;
@@ -126,7 +124,6 @@ void IronCompressorAudioProcessor::processBlock (juce::AudioBuffer<float>& buffe
 
     updateFilters(scMode, airBassMode);
 
-    // Моно-мейкер (применяется к Side-каналу)
     if (monoFreq > 20.0f) {
         auto monoCoeffs = juce::dsp::IIR::Coefficients<float>::makeHighPass(sr, monoFreq);
         for (int ch = 0; ch < 2; ++ch) monoMakerFilter[ch].coefficients = monoCoeffs;
@@ -156,7 +153,6 @@ void IronCompressorAudioProcessor::processBlock (juce::AudioBuffer<float>& buffe
         float inL = buffer.getSample(0, n) * curInGain;
         float inR = buffer.getSample(1, n) * curInGain;
 
-        // 1. Mid/Side и Mono Maker
         float mid = (inL + inR) * 0.5f;
         float side = (inL - inR) * 0.5f;
         if (monoFreq > 20.0f) side = monoMakerFilter[0].processSample(side);
@@ -164,7 +160,6 @@ void IronCompressorAudioProcessor::processBlock (juce::AudioBuffer<float>& buffe
         inL = mid + side;
         inR = mid - side;
 
-        // 2. Sidechain детектор
         float scL = sidechainFilter[0].processSample(inL);
         float scR = sidechainFilter[1].processSample(inR);
         
@@ -180,16 +175,13 @@ void IronCompressorAudioProcessor::processBlock (juce::AudioBuffer<float>& buffe
         envelope[0] = envL;
         envelope[1] = envR;
 
-        // 3. Вычисление CV
         const float threshLin = dbToGain(thresholdDb);
         float cvL = (envL > threshLin) ? juce::jlimit(0.0f, 1.0f, ((envL / threshLin) - 1.0f) * biasMultL) : 0.0f;
         float cvR = (envR > threshLin) ? juce::jlimit(0.0f, 1.0f, ((envR / threshLin) - 1.0f) * biasMultR) : 0.0f;
 
-        // Сохраняем GR для UI (в дБ)
         maxGRL = juce::jmax(maxGRL, cvL);
         maxGRR = juce::jmax(maxGRR, cvR);
 
-        // 4. Лампы и выход
         float dryL = buffer.getSample(0, n);
         float dryR = buffer.getSample(1, n);
 
@@ -208,7 +200,6 @@ void IronCompressorAudioProcessor::processBlock (juce::AudioBuffer<float>& buffe
         buffer.setSample(1, n, outR * curOutGain);
     }
 
-    // Записываем пиковое значение сжатия для UI
     currentGRL.store(maxGRL);
     currentGRR.store(maxGRR);
 }
