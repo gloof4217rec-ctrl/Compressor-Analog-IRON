@@ -230,6 +230,10 @@ void IronCompressorAudioProcessor::processBlock (juce::AudioBuffer<float>& buffe
 
     float maxGR_dB_L = 0.0f;
     float maxGR_dB_R = 0.0f;
+    
+    // Переменные для выходного уровня
+    float maxOutL = 0.0f;
+    float maxOutR = 0.0f;
 
     int osNumSamples = oversampledBlock.getNumSamples();
     for (int n = 0; n < osNumSamples; ++n)
@@ -318,14 +322,25 @@ void IronCompressorAudioProcessor::processBlock (juce::AudioBuffer<float>& buffe
         outL = mid + side;
         outR = mid - side;
 
-        oversampledBlock.setSample(0, n, outL * outputGainSmoothed[0].getNextValue());
-        oversampledBlock.setSample(1, n, outR * outputGainSmoothed[1].getNextValue());
+        // Применяем Output Gain и находим пиковый уровень
+        float finalL = outL * outputGainSmoothed[0].getNextValue();
+        float finalR = outR * outputGainSmoothed[1].getNextValue();
+        
+        maxOutL = juce::jmax(maxOutL, std::abs(finalL));
+        maxOutR = juce::jmax(maxOutR, std::abs(finalR));
+
+        oversampledBlock.setSample(0, n, finalL);
+        oversampledBlock.setSample(1, n, finalR);
     }
 
     oversampler->processSamplesDown(block);
 
     currentGR_dB_L.store(maxGR_dB_L);
     currentGR_dB_R.store(maxGR_dB_R);
+    
+    // Сохраняем выходной уровень в дБ
+    currentOut_dB_L.store(juce::Decibels::gainToDecibels(maxOutL, -100.0f));
+    currentOut_dB_R.store(juce::Decibels::gainToDecibels(maxOutR, -100.0f));
 }
 
 juce::AudioProcessorEditor* IronCompressorAudioProcessor::createEditor() { return new IronCompressorAudioProcessorEditor (*this); }
