@@ -1,23 +1,17 @@
 #include "PluginEditor.h"
 
-// Вспомогательная функция для покраски текстуры (эффект Multiply)
 static juce::Image createTintedImage(const juce::Image& source, juce::Colour tint)
 {
     if (!source.isValid()) return source;
-    
     juce::Image result(juce::Image::ARGB, source.getWidth(), source.getHeight(), true);
     juce::Image::BitmapData srcData(source, juce::Image::BitmapData::readOnly);
     juce::Image::BitmapData dstData(result, juce::Image::BitmapData::writeOnly);
-    
-    for (int y = 0; y < source.getHeight(); ++y)
-    {
-        for (int x = 0; x < source.getWidth(); ++x)
-        {
+    for (int y = 0; y < source.getHeight(); ++y) {
+        for (int x = 0; x < source.getWidth(); ++x) {
             juce::Colour c = srcData.getPixelColour(x, y);
             juce::uint8 r = (juce::uint8)((c.getRed() * tint.getRed()) / 255);
             juce::uint8 g = (juce::uint8)((c.getGreen() * tint.getGreen()) / 255);
             juce::uint8 b = (juce::uint8)((c.getBlue() * tint.getBlue()) / 255);
-            
             dstData.setPixelColour(x, y, juce::Colour(r, g, b).withAlpha(c.getAlpha()));
         }
     }
@@ -32,6 +26,17 @@ IronCompressorAudioProcessorEditor::IronCompressorAudioProcessorEditor (IronComp
 
     addAndMakeVisible(vuMeter_L);
     addAndMakeVisible(vuMeter_R);
+
+    // VU Переключатели
+    vuSwitch_L.addItemList({"GR", "OUT 0dB", "OUT +10dB"}, 1);
+    vuSwitch_L.setSelectedId(1);
+    vuSwitch_L.onChange = [this]() { vuMeter_L.setMode(vuSwitch_L.getSelectedId() - 1); };
+    addAndMakeVisible(vuSwitch_L);
+
+    vuSwitch_R.addItemList({"GR", "OUT 0dB", "OUT +10dB"}, 1);
+    vuSwitch_R.setSelectedId(1);
+    vuSwitch_R.onChange = [this]() { vuMeter_R.setMode(vuSwitch_R.getSelectedId() - 1); };
+    addAndMakeVisible(vuSwitch_R);
 
     // Пресеты
     presetBox.addItem("Default", 1);
@@ -237,8 +242,16 @@ IronCompressorAudioProcessorEditor::~IronCompressorAudioProcessorEditor() { setL
 
 void IronCompressorAudioProcessorEditor::timerCallback()
 {
-    vuMeter_L.setLevel(audioProcessor.currentGR_dB_L.load());
-    vuMeter_R.setLevel(audioProcessor.currentGR_dB_R.load());
+    // Передаем значения в зависимости от режима
+    int modeL = vuSwitch_L.getSelectedId() - 1;
+    int modeR = vuSwitch_R.getSelectedId() - 1;
+
+    if (modeL == 0) vuMeter_L.setLevel(audioProcessor.currentGR_dB_L.load());
+    else vuMeter_L.setLevel(audioProcessor.currentOut_dB_L.load());
+
+    if (modeR == 0) vuMeter_R.setLevel(audioProcessor.currentGR_dB_R.load());
+    else vuMeter_R.setLevel(audioProcessor.currentOut_dB_R.load());
+
     vuMeter_L.tick();
     vuMeter_R.tick();
 
@@ -303,11 +316,9 @@ void IronCompressorAudioProcessorEditor::paint (juce::Graphics& g)
     else
         g.fillAll (juce::Colours::orange);
 
-    // Верхняя черная панель
     g.setColour (juce::Colour (0xff1a1a1a));
     g.fillRect (0, 0, getWidth(), 60);
 
-    // Заголовок
     g.setColour (juce::Colours::white);
     g.setFont (juce::FontOptions (24.0f, juce::Font::bold));
     g.drawText ("SPL IRON", 20, 10, 200, 40, juce::Justification::centredLeft);
@@ -316,10 +327,10 @@ void IronCompressorAudioProcessorEditor::paint (juce::Graphics& g)
     g.setFont (14.0f);
     g.drawText ("Parallel Dual-Tube Compressor", 160, 15, 300, 30, juce::Justification::centredLeft);
     
-    // Рисуем темные панели под VU-метрами
+    // Подложки под VU
     g.setColour(juce::Colour(0x44000000));
-    g.fillRoundedRectangle(200.0f, 70.0f, 320.0f, 100.0f, 5.0f);
-    g.fillRoundedRectangle(580.0f, 70.0f, 320.0f, 100.0f, 5.0f);
+    g.fillRoundedRectangle(210.0f, 70.0f, 300.0f, 120.0f, 5.0f);
+    g.fillRoundedRectangle(590.0f, 70.0f, 300.0f, 120.0f, 5.0f);
 }
 
 void IronCompressorAudioProcessorEditor::resized()
@@ -329,17 +340,19 @@ void IronCompressorAudioProcessorEditor::resized()
 
     presetBox.setBounds (getWidth() - 170, 15, 150, 30);
 
-    // Размеры ручек
     const int smallKnob = 60;
-    const int bigKnob = 90; // Для Threshold
+    const int bigKnob = 90;
     const int comboHeight = 24;
     const int labelHeight = 16;
 
-    // === ЦЕНТР (VU-метры и TMT) ===
-    vuMeter_L.setBounds (210, 70, 300, 100);
-    vuMeter_R.setBounds (590, 70, 300, 100);
+    // VU и переключатели
+    vuMeter_L.setBounds (210, 70, 300, 90);
+    vuSwitch_L.setBounds (315, 165, 90, 22);
 
-    // TMT панель между метрами
+    vuMeter_R.setBounds (590, 70, 300, 90);
+    vuSwitch_R.setBounds (695, 165, 90, 22);
+
+    // TMT
     int cx = 460; 
     tmtEnableToggle.setBounds(cx + 10, 130, 80, 24);
     tmtModeButton.setBounds (cx + 10, 160, 40, 24);
@@ -348,81 +361,67 @@ void IronCompressorAudioProcessorEditor::resized()
     tmtRightBtn.setBounds (cx + 155, 160, 30, 24);
     tmtRandomBtn.setBounds (cx + 190, 160, 40, 24);
 
-    // === ЛЕВЫЙ КАНАЛ (L) ===
+    // Левый канал
     int lx = 20;
-    // Input (Слева вверху)
     labelInput_L.setBounds (lx, 80, 80, labelHeight);
     inputGainSlider_L.setBounds (lx, 100, 80, smallKnob + 20);
     
-    // Threshold (Огромная по центру слева)
     labelThreshold_L.setBounds (350, 210, 100, labelHeight);
     thresholdSlider_L.setBounds (330, 230, bigKnob + 40, bigKnob + 40);
 
-    // Attack, Release (Слева)
     labelAttack_L.setBounds (120, 210, 100, labelHeight);
     attackBox_L.setBounds (120, 230, 100, comboHeight);
     labelRelease_L.setBounds (120, 280, 100, labelHeight);
     releaseBox_L.setBounds (120, 300, 100, comboHeight);
 
-    // Bias, Rectifier (Слева внизу)
     labelBias_L.setBounds (lx, 320, 100, labelHeight);
     biasBox_L.setBounds (lx, 340, 100, comboHeight);
     
     labelRectifier_L.setBounds (130, 380, 150, labelHeight);
     rectifierBox_L.setBounds (130, 400, 150, comboHeight);
 
-    // Output (Слева внизу)
     labelOutput_L.setBounds (lx, 440, 80, labelHeight);
     outputGainSlider_L.setBounds (lx, 460, 80, smallKnob + 20);
 
-    // SC EQ и AirBass (Слева в самом низу)
     labelSidechain_L.setBounds (250, 420, 120, labelHeight);
     sidechainBox_L.setBounds (250, 440, 120, comboHeight);
     labelAirBass_L.setBounds (250, 480, 120, labelHeight);
     airBassBox_L.setBounds (250, 500, 120, comboHeight);
 
-    // === ПРАВЫЙ КАНАЛ (R) ===
+    // Правый канал
     int rx = 1000;
-    // Input (Справа вверху)
     labelInput_R.setBounds (rx, 80, 80, labelHeight);
     inputGainSlider_R.setBounds (rx, 100, 80, smallKnob + 20);
     
-    // Threshold (Огромная по центру справа)
     labelThreshold_R.setBounds (650, 210, 100, labelHeight);
     thresholdSlider_R.setBounds (630, 230, bigKnob + 40, bigKnob + 40);
 
-    // Attack, Release (Справа)
     labelAttack_R.setBounds (880, 210, 100, labelHeight);
     attackBox_R.setBounds (880, 230, 100, comboHeight);
     labelRelease_R.setBounds (880, 280, 100, labelHeight);
     releaseBox_R.setBounds (880, 300, 100, comboHeight);
 
-    // Bias, Rectifier (Справа внизу)
     labelBias_R.setBounds (rx, 320, 100, labelHeight);
     biasBox_R.setBounds (rx, 340, 100, comboHeight);
     
     labelRectifier_R.setBounds (820, 380, 150, labelHeight);
     rectifierBox_R.setBounds (820, 400, 150, comboHeight);
 
-    // Output (Справа внизу)
     labelOutput_R.setBounds (rx, 440, 80, labelHeight);
     outputGainSlider_R.setBounds (rx, 460, 80, smallKnob + 20);
 
-    // SC EQ и AirBass (Справа в самом низу)
     labelSidechain_R.setBounds (730, 420, 120, labelHeight);
     sidechainBox_R.setBounds (730, 440, 120, comboHeight);
     labelAirBass_R.setBounds (730, 480, 120, labelHeight);
     airBassBox_R.setBounds (730, 500, 120, comboHeight);
 
-    // === МАСТЕР-СЕКЦИЯ (В самом низу по центру) ===
-    int mx = 350; // Начало мастер-секции
-    int mkW = 400 / 4; // 4 ручки
+    // Мастер-секция
+    int mx = 350;
+    int mkW = 400 / 4;
 
-    // Верхний ряд мастер-секции: Link и M/S
     linkButton.setBounds (mx + 50, 580, 130, 24);
     midSideButton.setBounds (mx + 220, 580, 130, 24);
 
-    // Нижний ряд: Master Knobs (Mix, Width, Mono, Headroom)
     labelMix.setBounds (mx, 620, mkW, labelHeight);
     mixSlider.setBounds (mx, 640, mkW, smallKnob + 20);
 
