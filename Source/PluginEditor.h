@@ -24,8 +24,8 @@ public:
         g.drawEllipse (rx, ry, rw, rw, 2.0f);
 
         // Рисуем насечки (ticks)
-        int numSteps = slider.getMaximum() - slider.getMinimum() + 1;
-        if (numSteps > 1 && slider.getInterval() >= 1.0)
+        int numSteps = (int)(slider.getMaximum() - slider.getMinimum()) + 1;
+        if (numSteps > 1)
         {
             float stepAngle = (rotaryEndAngle - rotaryStartAngle) / (float)(numSteps - 1);
             for (int i = 0; i < numSteps; ++i)
@@ -58,7 +58,7 @@ public:
     void drawToggleButton (juce::Graphics& g, juce::ToggleButton& button,
                            bool shouldDrawButtonAsHighlighted, bool shouldDrawButtonAsDown) override
     {
-        auto bounds = button.getLocalBounds().toFloat().reduced(4.0f);
+        auto bounds = button.getLocalBounds().toFloat().reduced(2.0f);
         auto isOn = button.getToggleState();
         
         // Фон
@@ -77,14 +77,14 @@ public:
         g.setColour (isOn ? juce::Colour (0xffe65100) : juce::Colour (0xff555555));
         g.fillRoundedRectangle(knobRect, 3.0f);
         
-        // Текст (опционально, можно вывести сбоку)
+        // Текст
         g.setColour (juce::Colours::white);
-        g.setFont (12.0f);
-        g.drawText (isOn ? "ON" : "OFF", bounds.removeFromBottom(16), juce::Justification::centred);
+        g.setFont (10.0f);
+        g.drawText (isOn ? "ON" : "OFF", bounds.removeFromBottom(14), juce::Justification::centred);
     }
 };
 
-// === Аналоговый VU-метр (адаптация InstaShadow NeedleVuMeter) ===
+// === Аналоговый VU-метр ===
 class AnalogVUMeter : public juce::Component
 {
 public:
@@ -96,8 +96,6 @@ public:
     void paint(juce::Graphics& g) override
     {
         auto bounds = getLocalBounds().toFloat();
-        
-        // Желтый фон
         g.setColour(juce::Colour(0xffffcc00));
         g.fillRoundedRectangle(bounds, 10.0f);
         
@@ -111,7 +109,6 @@ public:
         g.setColour(juce::Colours::black);
         g.setFont(10.0f);
         
-        // Шкала
         for (int val = 0; val >= -20; val -= 5) {
             float normalized = juce::jmap((float)val, -20.0f, 0.0f, 0.0f, 1.0f);
             float angle = minAngle + normalized * (maxAngle - minAngle);
@@ -125,7 +122,6 @@ public:
             g.drawText(juce::String(val), textX - 10.0f, textY - 10.0f, 20.0f, 20.0f, juce::Justification::centred);
         }
 
-        // Стрелка с физикой (из NeedleVuMeter)
         juce::Path needle;
         float currentVal = currentLevel;
         if (currentMode == 2) currentVal = juce::jlimit(-10.0f, 10.0f, currentVal);
@@ -182,7 +178,7 @@ private:
     juce::TextButton tmtRandomBtn{"RND"};
     juce::Label tmtDisplay;
 
-    // Вместо ComboBox теперь Slider'ы
+    // Слайдеры
     juce::Slider thresholdSlider_L, inputGainSlider_L, outputGainSlider_L;
     juce::Slider attackSlider_L, releaseSlider_L, biasSlider_L, rectifierSlider_L, airBassSlider_L, sidechainSlider_L;
     juce::Label labelThreshold_L, labelInput_L, labelOutput_L, labelAttack_L, labelRelease_L, labelBias_L, labelRectifier_L, labelAirBass_L, labelSidechain_L;
