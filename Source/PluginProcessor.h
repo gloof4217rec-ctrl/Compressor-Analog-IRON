@@ -46,11 +46,11 @@ public:
 private:
     juce::AudioProcessorValueTreeState::ParameterLayout createParameterLayout();
     void updateFilters();
-    void updateTimingCoefficients(int attL, int relL, int recL, int attR, int relR, int recR);
+    void updateTimingCoefficients(int attL, int relL, int recL, int attR, int relR, int recR, double currentSr);
 
     double sr = 44100.0;
     std::array<float, 2> envelope { 0.0f, 0.0f };
-    std::array<float, 2> optoState { 0.0f, 0.0f }; // Для эффекта памяти Опто-лимитера
+    std::array<float, 2> optoState { 0.0f, 0.0f };
 
     juce::dsp::IIR::Filter<float> sidechainFilter[2];
     juce::dsp::IIR::Filter<float> monoMakerFilter[2];
@@ -71,7 +71,6 @@ private:
 
     std::array<TMTParams, 20> tmtChannels;
 
-    // Oversampling
     std::unique_ptr<juce::dsp::Oversampling<float>> oversampler;
 
     float getParam(const juce::String& id) { return apvts.getRawParameterValue(id)->load(); }
