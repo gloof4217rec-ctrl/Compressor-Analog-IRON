@@ -50,23 +50,29 @@ private:
 
     double sr = 44100.0;
     std::array<float, 2> envelope { 0.0f, 0.0f };
+    std::array<float, 2> optoState { 0.0f, 0.0f }; // Для эффекта памяти Опто-лимитера
 
     juce::dsp::IIR::Filter<float> sidechainFilter[2];
     juce::dsp::IIR::Filter<float> monoMakerFilter[2];
     juce::dsp::IIR::Filter<float> airBassFilter[2];
 
     juce::SmoothedValue<float> inputGainSmoothed[2];
-    juce::SmoothedValue<float> outputGainSmoothed;
+    juce::SmoothedValue<float> outputGainSmoothed[2];
     juce::SmoothedValue<float> mixSmoothed;
     juce::SmoothedValue<float> headroomSmoothed;
 
     float attackCoeff[2]  { 0.0f, 0.0f };
     float releaseCoeff[2] { 0.0f, 0.0f };
 
-    int lastSidechainMode = -1;
-    int lastAirBassMode = -1;
+    int lastSidechainModeL = -1;
+    int lastSidechainModeR = -1;
+    int lastAirBassModeL = -1;
+    int lastAirBassModeR = -1;
 
     std::array<TMTParams, 20> tmtChannels;
+
+    // Oversampling
+    std::unique_ptr<juce::dsp::Oversampling<float>> oversampler;
 
     float getParam(const juce::String& id) { return apvts.getRawParameterValue(id)->load(); }
     int getChoice(const juce::String& id) { return static_cast<int>(apvts.getRawParameterValue(id)->load()); }
