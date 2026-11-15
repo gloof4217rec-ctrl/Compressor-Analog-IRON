@@ -14,7 +14,6 @@ static juce::Image createTintedImage(const juce::Image& source, juce::Colour tin
         for (int x = 0; x < source.getWidth(); ++x)
         {
             juce::Colour c = srcData.getPixelColour(x, y);
-            // Умножаем цвет текстуры на цвет краски (Multiply)
             juce::uint8 r = (juce::uint8)((c.getRed() * tint.getRed()) / 255);
             juce::uint8 g = (juce::uint8)((c.getGreen() * tint.getGreen()) / 255);
             juce::uint8 b = (juce::uint8)((c.getBlue() * tint.getBlue()) / 255);
@@ -129,7 +128,6 @@ IronCompressorAudioProcessorEditor::IronCompressorAudioProcessorEditor (IronComp
         param->setValueNotifyingHost(param->convertTo0to1((float)randomVal));
     };
 
-    // Слайдеры и комбо
     auto setupSlider = [this](juce::Slider& s, juce::Label& l, const juce::String& name) {
         s.setSliderStyle (juce::Slider::RotaryHorizontalVerticalDrag);
         s.setTextBoxStyle (juce::Slider::TextBoxBelow, false, 60, 20);
@@ -147,6 +145,7 @@ IronCompressorAudioProcessorEditor::IronCompressorAudioProcessorEditor (IronComp
         addAndMakeVisible (l);
     };
 
+    // Левый канал
     setupSlider(thresholdSlider_L, labelThreshold_L, "THRESHOLD L");
     setupSlider(inputGainSlider_L, labelInput_L, "INPUT L");
     setupSlider(outputGainSlider_L, labelOutput_L, "OUTPUT L");
@@ -157,6 +156,7 @@ IronCompressorAudioProcessorEditor::IronCompressorAudioProcessorEditor (IronComp
     setupCombo(airBassBox_L, labelAirBass_L, "AIR/TAPE L", { "Bypass", "AirBass", "Tape Roll-Off" });
     setupCombo(sidechainBox_L, labelSidechain_L, "SC EQ L", { "Off", "Preset 1", "Preset 2", "Preset 3", "Preset 4" });
 
+    // Правый канал
     setupSlider(thresholdSlider_R, labelThreshold_R, "THRESHOLD R");
     setupSlider(inputGainSlider_R, labelInput_R, "INPUT R");
     setupSlider(outputGainSlider_R, labelOutput_R, "OUTPUT R");
@@ -167,6 +167,7 @@ IronCompressorAudioProcessorEditor::IronCompressorAudioProcessorEditor (IronComp
     setupCombo(airBassBox_R, labelAirBass_R, "AIR/TAPE R", { "Bypass", "AirBass", "Tape Roll-Off" });
     setupCombo(sidechainBox_R, labelSidechain_R, "SC EQ R", { "Off", "Preset 1", "Preset 2", "Preset 3", "Preset 4" });
 
+    // Мастер
     setupSlider(mixSlider, labelMix, "MIX");
     setupSlider(widthSlider, labelWidth, "WIDTH");
     setupSlider(monoSlider, labelMono, "MONO");
@@ -203,7 +204,7 @@ IronCompressorAudioProcessorEditor::IronCompressorAudioProcessorEditor (IronComp
     attLink = std::make_unique<ButtonAttachment>(audioProcessor.apvts, "link", linkButton);
     attMidSide = std::make_unique<ButtonAttachment>(audioProcessor.apvts, "midSide", midSideButton);
 
-    // ФИКС LINK: копируем только при отжатии
+    // ФИКС LINK
     linkButton.onClick = [this]() {
         if (!linkButton.getToggleState()) {
             auto copyParam = [&](const juce::String& idL, const juce::String& idR) {
@@ -291,7 +292,6 @@ void IronCompressorAudioProcessorEditor::timerCallback()
 
 void IronCompressorAudioProcessorEditor::paint (juce::Graphics& g)
 {
-    // Загружаем и красим текстуру один раз при отрисовке
     static juce::Image bgTextureOriginal = juce::ImageFileFormat::loadFrom(
         BinaryData::bg_texture_jpg, 
         BinaryData::bg_texture_jpgSize
@@ -299,18 +299,15 @@ void IronCompressorAudioProcessorEditor::paint (juce::Graphics& g)
     static juce::Image bgTextureTinted = createTintedImage(bgTextureOriginal, juce::Colour(0xffb30000));
 
     if (bgTextureTinted.isValid())
-    {
         g.drawImage(bgTextureTinted, getLocalBounds().toFloat(), juce::RectanglePlacement::fillDestination);
-    }
     else
-    {
-        // ЕСЛИ ФОН ОРАНЖЕВЫЙ — КАРТИНКА НЕ ЗАГРУЗИЛАСЬ
         g.fillAll (juce::Colours::orange);
-    }
 
+    // Верхняя черная панель
     g.setColour (juce::Colour (0xff1a1a1a));
     g.fillRect (0, 0, getWidth(), 60);
 
+    // Заголовок
     g.setColour (juce::Colours::white);
     g.setFont (juce::FontOptions (24.0f, juce::Font::bold));
     g.drawText ("SPL IRON", 20, 10, 200, 40, juce::Justification::centredLeft);
@@ -318,6 +315,11 @@ void IronCompressorAudioProcessorEditor::paint (juce::Graphics& g)
     g.setColour (juce::Colour (0xffaaaaaa));
     g.setFont (14.0f);
     g.drawText ("Parallel Dual-Tube Compressor", 160, 15, 300, 30, juce::Justification::centredLeft);
+    
+    // Рисуем темные панели под VU-метрами
+    g.setColour(juce::Colour(0x44000000));
+    g.fillRoundedRectangle(200.0f, 70.0f, 320.0f, 100.0f, 5.0f);
+    g.fillRoundedRectangle(580.0f, 70.0f, 320.0f, 100.0f, 5.0f);
 }
 
 void IronCompressorAudioProcessorEditor::resized()
@@ -327,82 +329,109 @@ void IronCompressorAudioProcessorEditor::resized()
 
     presetBox.setBounds (getWidth() - 170, 15, 150, 30);
 
-    const int knobSize = 65;
-    const int comboHeight = 22;
+    // Размеры ручек
+    const int smallKnob = 60;
+    const int bigKnob = 90; // Для Threshold
+    const int comboHeight = 24;
     const int labelHeight = 16;
-    const int colW = 150;
 
+    // === ЦЕНТР (VU-метры и TMT) ===
+    vuMeter_L.setBounds (210, 70, 300, 100);
+    vuMeter_R.setBounds (590, 70, 300, 100);
+
+    // TMT панель между метрами
+    int cx = 460; 
+    tmtEnableToggle.setBounds(cx + 10, 130, 80, 24);
+    tmtModeButton.setBounds (cx + 10, 160, 40, 24);
+    tmtLeftBtn.setBounds (cx + 55, 160, 30, 24);
+    tmtDisplay.setBounds (cx + 90, 160, 60, 24);
+    tmtRightBtn.setBounds (cx + 155, 160, 30, 24);
+    tmtRandomBtn.setBounds (cx + 190, 160, 40, 24);
+
+    // === ЛЕВЫЙ КАНАЛ (L) ===
     int lx = 20;
-    vuMeter_L.setBounds (lx + 10, 70, 280, 80);
+    // Input (Слева вверху)
+    labelInput_L.setBounds (lx, 80, 80, labelHeight);
+    inputGainSlider_L.setBounds (lx, 100, 80, smallKnob + 20);
     
-    labelInput_L.setBounds (lx, 170, colW, labelHeight);
-    inputGainSlider_L.setBounds (lx, 190, colW, knobSize + 20);
-    labelThreshold_L.setBounds (lx + 160, 170, colW, labelHeight);
-    thresholdSlider_L.setBounds (lx + 160, 190, colW, knobSize + 20);
+    // Threshold (Огромная по центру слева)
+    labelThreshold_L.setBounds (350, 210, 100, labelHeight);
+    thresholdSlider_L.setBounds (330, 230, bigKnob + 40, bigKnob + 40);
 
-    labelAttack_L.setBounds (lx, 290, colW, labelHeight);
-    attackBox_L.setBounds (lx, 310, colW, comboHeight);
-    labelRelease_L.setBounds (lx + 160, 290, colW, labelHeight);
-    releaseBox_L.setBounds (lx + 160, 310, colW, comboHeight);
+    // Attack, Release (Слева)
+    labelAttack_L.setBounds (120, 210, 100, labelHeight);
+    attackBox_L.setBounds (120, 230, 100, comboHeight);
+    labelRelease_L.setBounds (120, 280, 100, labelHeight);
+    releaseBox_L.setBounds (120, 300, 100, comboHeight);
 
-    labelBias_L.setBounds (lx, 360, colW, labelHeight);
-    biasBox_L.setBounds (lx, 380, colW, comboHeight);
-    labelRectifier_L.setBounds (lx + 160, 360, colW, labelHeight);
-    rectifierBox_L.setBounds (lx + 160, 380, colW, comboHeight);
-
-    labelOutput_L.setBounds (lx, 460, colW, labelHeight);
-    outputGainSlider_L.setBounds (lx, 480, colW, knobSize + 20);
-    labelAirBass_L.setBounds (lx + 160, 460, colW, labelHeight);
-    airBassBox_L.setBounds (lx + 160, 480, colW, comboHeight);
-    labelSidechain_L.setBounds (lx + 160, 520, colW, labelHeight);
-    sidechainBox_L.setBounds (lx + 160, 540, colW, comboHeight);
-
-    int rx = 750;
-    vuMeter_R.setBounds (rx + 10, 70, 280, 80);
+    // Bias, Rectifier (Слева внизу)
+    labelBias_L.setBounds (lx, 320, 100, labelHeight);
+    biasBox_L.setBounds (lx, 340, 100, comboHeight);
     
-    labelInput_R.setBounds (rx, 170, colW, labelHeight);
-    inputGainSlider_R.setBounds (rx, 190, colW, knobSize + 20);
-    labelThreshold_R.setBounds (rx + 160, 170, colW, labelHeight);
-    thresholdSlider_R.setBounds (rx + 160, 190, colW, knobSize + 20);
+    labelRectifier_L.setBounds (130, 380, 150, labelHeight);
+    rectifierBox_L.setBounds (130, 400, 150, comboHeight);
 
-    labelAttack_R.setBounds (rx, 290, colW, labelHeight);
-    attackBox_R.setBounds (rx, 310, colW, comboHeight);
-    labelRelease_R.setBounds (rx + 160, 290, colW, labelHeight);
-    releaseBox_R.setBounds (rx + 160, 310, colW, comboHeight);
+    // Output (Слева внизу)
+    labelOutput_L.setBounds (lx, 440, 80, labelHeight);
+    outputGainSlider_L.setBounds (lx, 460, 80, smallKnob + 20);
 
-    labelBias_R.setBounds (rx, 360, colW, labelHeight);
-    biasBox_R.setBounds (rx, 380, colW, comboHeight);
-    labelRectifier_R.setBounds (rx + 160, 360, colW, labelHeight);
-    rectifierBox_R.setBounds (rx + 160, 380, colW, comboHeight);
+    // SC EQ и AirBass (Слева в самом низу)
+    labelSidechain_L.setBounds (250, 420, 120, labelHeight);
+    sidechainBox_L.setBounds (250, 440, 120, comboHeight);
+    labelAirBass_L.setBounds (250, 480, 120, labelHeight);
+    airBassBox_L.setBounds (250, 500, 120, comboHeight);
 
-    labelOutput_R.setBounds (rx, 460, colW, labelHeight);
-    outputGainSlider_R.setBounds (rx, 480, colW, knobSize + 20);
-    labelAirBass_R.setBounds (rx + 160, 460, colW, labelHeight);
-    airBassBox_R.setBounds (rx + 160, 480, colW, comboHeight);
-    labelSidechain_R.setBounds (rx + 160, 520, colW, labelHeight);
-    sidechainBox_R.setBounds (rx + 160, 540, colW, comboHeight);
+    // === ПРАВЫЙ КАНАЛ (R) ===
+    int rx = 1000;
+    // Input (Справа вверху)
+    labelInput_R.setBounds (rx, 80, 80, labelHeight);
+    inputGainSlider_R.setBounds (rx, 100, 80, smallKnob + 20);
+    
+    // Threshold (Огромная по центру справа)
+    labelThreshold_R.setBounds (650, 210, 100, labelHeight);
+    thresholdSlider_R.setBounds (630, 230, bigKnob + 40, bigKnob + 40);
 
-    int cx = 400;
-    tmtEnableToggle.setBounds(cx + 10, 70, 80, 24);
-    tmtModeButton.setBounds (cx + 90, 70, 40, 24);
-    tmtLeftBtn.setBounds (cx + 135, 70, 30, 24);
-    tmtDisplay.setBounds (cx + 170, 70, 80, 24);
-    tmtRightBtn.setBounds (cx + 255, 70, 30, 24);
-    tmtRandomBtn.setBounds (cx + 290, 70, 40, 24);
+    // Attack, Release (Справа)
+    labelAttack_R.setBounds (880, 210, 100, labelHeight);
+    attackBox_R.setBounds (880, 230, 100, comboHeight);
+    labelRelease_R.setBounds (880, 280, 100, labelHeight);
+    releaseBox_R.setBounds (880, 300, 100, comboHeight);
 
-    linkButton.setBounds (cx + 10, 120, 130, 30);
-    midSideButton.setBounds (cx + 160, 120, 130, 30);
+    // Bias, Rectifier (Справа внизу)
+    labelBias_R.setBounds (rx, 320, 100, labelHeight);
+    biasBox_R.setBounds (rx, 340, 100, comboHeight);
+    
+    labelRectifier_R.setBounds (820, 380, 150, labelHeight);
+    rectifierBox_R.setBounds (820, 400, 150, comboHeight);
 
-    int mkW = 300 / 4;
-    labelMix.setBounds (cx, 180, mkW, labelHeight);
-    mixSlider.setBounds (cx, 200, mkW, knobSize + 20);
+    // Output (Справа внизу)
+    labelOutput_R.setBounds (rx, 440, 80, labelHeight);
+    outputGainSlider_R.setBounds (rx, 460, 80, smallKnob + 20);
 
-    labelWidth.setBounds (cx + mkW, 180, mkW, labelHeight);
-    widthSlider.setBounds (cx + mkW, 200, mkW, knobSize + 20);
+    // SC EQ и AirBass (Справа в самом низу)
+    labelSidechain_R.setBounds (730, 420, 120, labelHeight);
+    sidechainBox_R.setBounds (730, 440, 120, comboHeight);
+    labelAirBass_R.setBounds (730, 480, 120, labelHeight);
+    airBassBox_R.setBounds (730, 500, 120, comboHeight);
 
-    labelMono.setBounds (cx + mkW*2, 180, mkW, labelHeight);
-    monoSlider.setBounds (cx + mkW*2, 200, mkW, knobSize + 20);
+    // === МАСТЕР-СЕКЦИЯ (В самом низу по центру) ===
+    int mx = 350; // Начало мастер-секции
+    int mkW = 400 / 4; // 4 ручки
 
-    labelHeadroom.setBounds (cx + mkW*3, 180, mkW, labelHeight);
-    headroomSlider.setBounds (cx + mkW*3, 200, mkW, knobSize + 20);
+    // Верхний ряд мастер-секции: Link и M/S
+    linkButton.setBounds (mx + 50, 580, 130, 24);
+    midSideButton.setBounds (mx + 220, 580, 130, 24);
+
+    // Нижний ряд: Master Knobs (Mix, Width, Mono, Headroom)
+    labelMix.setBounds (mx, 620, mkW, labelHeight);
+    mixSlider.setBounds (mx, 640, mkW, smallKnob + 20);
+
+    labelWidth.setBounds (mx + mkW, 620, mkW, labelHeight);
+    widthSlider.setBounds (mx + mkW, 640, mkW, smallKnob + 20);
+
+    labelMono.setBounds (mx + mkW*2, 620, mkW, labelHeight);
+    monoSlider.setBounds (mx + mkW*2, 640, mkW, smallKnob + 20);
+
+    labelHeadroom.setBounds (mx + mkW*3, 620, mkW, labelHeight);
+    headroomSlider.setBounds (mx + mkW*3, 640, mkW, smallKnob + 20);
 }
