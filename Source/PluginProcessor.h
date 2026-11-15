@@ -40,7 +40,6 @@ public:
 
     juce::AudioProcessorValueTreeState apvts;
 
-    // Индикаторы для UI
     std::atomic<float> currentGR_dB_L { 0.0f };
     std::atomic<float> currentGR_dB_R { 0.0f };
     std::atomic<float> currentOut_dB_L { -100.0f };
@@ -73,12 +72,10 @@ private:
     int lastAirBassModeR = -1;
 
     std::array<TMTParams, 20> tmtChannels;
-
     std::unique_ptr<juce::dsp::Oversampling<float>> oversampler;
 
     float getParam(const juce::String& id) { return apvts.getRawParameterValue(id)->load(); }
     int getChoice(const juce::String& id) { return static_cast<int>(apvts.getRawParameterValue(id)->load()); }
-
     static float dbToGain (float db) { return std::pow (10.0f, db / 20.0f); }
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (IronCompressorAudioProcessor)
