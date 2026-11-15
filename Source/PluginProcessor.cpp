@@ -14,7 +14,6 @@ IronCompressorAudioProcessor::IronCompressorAudioProcessor()
         ch.biasOffset   = 0.98f + (r.nextFloat() * 0.04f);
     }
 
-    // Инициализация Oversampling (2 канала, 2 степени = 4x, IIR фильтр)
     oversampler = std::make_unique<juce::dsp::Oversampling<float>>(
         2, 2, juce::dsp::Oversampling<float>::filterHalfBandPolyphaseIIR, true, false);
 }
@@ -98,37 +97,35 @@ bool IronCompressorAudioProcessor::isBusesLayoutSupported (const BusesLayout& la
         && layouts.getMainOutputChannelSet() == juce::AudioChannelSet::stereo();
 }
 
-void IronCompressorAudioProcessor::updateTimingCoefficients(int attL, int relL, int recL, int attR, int relR, int recR)
+void IronCompressorAudioProcessor::updateTimingCoefficients(int attL, int relL, int recL, int attR, int relR, int recR, double currentSr)
 {
-    // ТОЧНЫЕ ЗНАЧЕНИЯ ИЗ МАНУАЛА (Стр 15)
-    // [Rectifier][A+R Position 0-5]
     static constexpr float attackTable[6][6] = {
-        { 0.1f, 6.0f, 10.0f, 18.0f, 30.0f, 50.0f }, // GE 1mF
-        { 1.0f, 15.0f, 30.0f, 40.0f, 50.0f, 70.0f }, // GE 2mF
-        { 3.0f, 35.0f, 70.0f, 100.0f, 150.0f, 220.0f }, // LED 3.3mF
-        { 0.5f, 3.0f, 5.0f, 8.0f, 9.0f, 12.0f }, // Si 330nF
-        { 0.3f, 1.5f, 3.0f, 5.0f, 7.0f, 9.0f }, // Ge 220nF
-        { 0.2f, 0.7f, 1.5f, 2.5f, 4.0f, 6.0f }  // Ge/Si 100nF
+        { 0.1f, 6.0f, 10.0f, 18.0f, 30.0f, 50.0f },
+        { 1.0f, 15.0f, 30.0f, 40.0f, 50.0f, 70.0f },
+        { 3.0f, 35.0f, 70.0f, 100.0f, 150.0f, 220.0f },
+        { 0.5f, 3.0f, 5.0f, 8.0f, 9.0f, 12.0f },
+        { 0.3f, 1.5f, 3.0f, 5.0f, 7.0f, 9.0f },
+        { 0.2f, 0.7f, 1.5f, 2.5f, 4.0f, 6.0f }
     };
 
     static constexpr float releaseTable[6][6] = {
-        { 100.0f, 150.0f, 180.0f, 200.0f, 220.0f, 250.0f }, // GE 1mF
-        { 300.0f, 450.0f, 500.0f, 600.0f, 700.0f, 900.0f }, // GE 2mF
-        { 600.0f, 1000.0f, 1700.0f, 2500.0f, 3200.0f, 5000.0f }, // LED 3.3mF
-        { 80.0f, 120.0f, 160.0f, 180.0f, 220.0f, 300.0f }, // Si 330nF
-        { 30.0f, 50.0f, 70.0f, 80.0f, 120.0f, 130.0f }, // Ge 220nF
-        { 20.0f, 40.0f, 60.0f, 80.0f, 100.0f, 170.0f }  // Ge/Si 100nF
+        { 100.0f, 150.0f, 180.0f, 200.0f, 220.0f, 250.0f },
+        { 300.0f, 450.0f, 500.0f, 600.0f, 700.0f, 900.0f },
+        { 600.0f, 1000.0f, 1700.0f, 2500.0f, 3200.0f, 5000.0f },
+        { 80.0f, 120.0f, 160.0f, 180.0f, 220.0f, 300.0f },
+        { 30.0f, 50.0f, 70.0f, 80.0f, 120.0f, 130.0f },
+        { 20.0f, 40.0f, 60.0f, 80.0f, 100.0f, 170.0f }
     };
 
     float aSecL = attackTable[recL][attL] / 1000.0f;
     float rSecL = releaseTable[recL][relL] / 1000.0f;
-    attackCoeff[0] = std::exp(-1.0f / (juce::jmax(aSecL, 0.0001f) * (float)sr));
-    releaseCoeff[0] = std::exp(-1.0f / (juce::jmax(rSecL, 0.0001f) * (float)sr));
+    attackCoeff[0] = std::exp(-1.0f / (juce::jmax(aSecL, 0.0001f) * (float)currentSr));
+    releaseCoeff[0] = std::exp(-1.0f / (juce::jmax(rSecL, 0.0001f) * (float)currentSr));
 
     float aSecR = attackTable[recR][attR] / 1000.0f;
     float rSecR = releaseTable[recR][relR] / 1000.0f;
-    attackCoeff[1] = std::exp(-1.0f / (juce::jmax(aSecR, 0.0001f) * (float)sr));
-    releaseCoeff[1] = std::exp(-1.0f / (juce::jmax(rSecR, 0.0001f) * (float)sr));
+    attackCoeff[1] = std::exp(-1.0f / (juce::jmax(aSecR, 0.0001f) * (float)currentSr));
+    releaseCoeff[1] = std::exp(-1.0f / (juce::jmax(rSecR, 0.0001f) * (float)currentSr));
 }
 
 void IronCompressorAudioProcessor::updateFilters()
@@ -175,7 +172,6 @@ void IronCompressorAudioProcessor::processBlock (juce::AudioBuffer<float>& buffe
     const int numSamples = buffer.getNumSamples();
     if (buffer.getNumChannels() < 2 || numSamples == 0) return;
 
-    // 1. OVERSAMPLING (4x)
     juce::dsp::AudioBlock<float> block (buffer);
     auto oversampledBlock = oversampler->processSamplesUp(block);
 
@@ -219,15 +215,8 @@ void IronCompressorAudioProcessor::processBlock (juce::AudioBuffer<float>& buffe
 
     updateFilters();
     
-    // sr внутри оверсэмплера удваивается 2 раза (4x)
     double osSr = sr * 4.0; 
-    // updateTimingCoefficients использует sr, передадим osSr через локальную переменную или пересчитаем
-    float aSecL = 0, rSecL = 0, aSecR = 0, rSecR = 0;
-    // (Для простоты пересчета в оверсэмплинге, я временно подменю sr)
-    double originalSr = sr;
-    sr = osSr;
-    updateTimingCoefficients(attackL, releaseL, rectifierL, attackR, releaseR, rectifierR);
-    sr = originalSr; // возвращаем обратно
+    updateTimingCoefficients(attackL, releaseL, rectifierL, attackR, releaseR, rectifierR, osSr);
 
     inputGainSmoothed[0].setTargetValue(inGainL);
     inputGainSmoothed[1].setTargetValue(inGainR);
@@ -242,7 +231,6 @@ void IronCompressorAudioProcessor::processBlock (juce::AudioBuffer<float>& buffe
     float maxGR_dB_L = 0.0f;
     float maxGR_dB_R = 0.0f;
 
-    // Цикл по оверсэмплированным сэмплам
     int osNumSamples = oversampledBlock.getNumSamples();
     for (int n = 0; n < osNumSamples; ++n)
     {
@@ -295,13 +283,11 @@ void IronCompressorAudioProcessor::processBlock (juce::AudioBuffer<float>& buffe
         float cvL = (envL > threshLinL) ? juce::jlimit(0.0f, 1.0f, ((envL / threshLinL) - 1.0f) * biasMultL) : 0.0f;
         float cvR = (envR > threshLinR) ? juce::jlimit(0.0f, 1.0f, ((envR / threshLinR) - 1.0f) * biasMultR) : 0.0f;
 
-        // 2. ОПТО-ЛИМИТЕР (VTL5C1) - эффект памяти
-        // Сглаживаем CV, чтобы релиз был более плавным (имитация фоторезистора)
-        float optoCoeff = 0.00005f * (float)osSr; // скорость отклика оптрона
+        float optoCoeff = 0.00005f * (float)osSr; 
         optoState[0] += (cvL - optoState[0]) * optoCoeff;
         optoState[1] += (cvR - optoState[1]) * optoCoeff;
         
-        float finalCvL = juce::jmax(cvL, optoState[0]); // Оптрон не дает мгновенно сбросить сжатие
+        float finalCvL = juce::jmax(cvL, optoState[0]); 
         float finalCvR = juce::jmax(cvR, optoState[1]);
 
         if (finalCvL > 0.001f) maxGR_dB_L = juce::jmin(maxGR_dB_L, juce::Decibels::gainToDecibels(1.0f - finalCvL, -100.0f));
@@ -336,7 +322,6 @@ void IronCompressorAudioProcessor::processBlock (juce::AudioBuffer<float>& buffe
         oversampledBlock.setSample(1, n, outR * outputGainSmoothed[1].getNextValue());
     }
 
-    // Downsample обратно
     oversampler->processSamplesDown(block);
 
     currentGR_dB_L.store(maxGR_dB_L);
