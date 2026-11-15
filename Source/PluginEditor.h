@@ -1,81 +1,69 @@
 #pragma once
 
 #include <JuceHeader.h>
-#include "PluginProcessor.h"
+#include <array>
+#include <atomic>
 
-// Класс для кастомного дизайна ручек (красно-черный стиль SPL)
-class IronLookAndFeel : public juce::LookAndFeel_V4
+class IronCompressorAudioProcessor : public juce::AudioProcessor
 {
 public:
-    IronLookAndFeel() {
-        setColour (juce::Slider::rotarySliderFillColourId, juce::Colour (0xffe65100)); // Оранжевый индикатор
-        setColour (juce::Slider::rotarySliderOutlineColourId, juce::Colour (0xff333333));
-        setColour (juce::Slider::thumbColourId, juce::Colours::white);
-        setColour (juce::ComboBox::backgroundColourId, juce::Colour (0xff222222));
-        setColour (juce::ComboBox::textColourId, juce::Colours::white);
-        setColour (juce::ComboBox::outlineColourId, juce::Colour (0xff555555));
-        setColour (juce::Label::textColourId, juce::Colours::white);
-    }
+    IronCompressorAudioProcessor();
+    ~IronCompressorAudioProcessor() override;
 
-    void drawRotarySlider (juce::Graphics& g, int x, int y, int width, int height, float sliderPos,
-                           const float rotaryStartAngle, const float rotaryEndAngle, juce::Slider&) override
-    {
-        auto radius = (float) juce::jmin (width / 2, height / 2) - 4.0f;
-        auto centreX = (float) x + (float) width  * 0.5f;
-        auto centreY = (float) y + (float) height * 0.5f;
-        auto rx = centreX - radius;
-        auto ry = centreY - radius;
-        auto rw = radius * 2.0f;
-        auto angle = rotaryStartAngle + sliderPos * (rotaryEndAngle - rotaryStartAngle);
+    void prepareToPlay (double sampleRate, int samplesPerBlock) override;
+    void releaseResources() override;
+    bool isBusesLayoutSupported (const BusesLayout& layouts) const override;
+    void processBlock (juce::AudioBuffer<float>&, juce::MidiBuffer&) override;
 
-        // Фон ручки
-        g.setColour (juce::Colour (0xff1e1e1e));
-        g.fillEllipse (rx, ry, rw, rw);
+    juce::AudioProcessorEditor* createEditor() override;
+    bool hasEditor() const override { return true; }
 
-        // Обводка
-        g.setColour (juce::Colour (0xff444444));
-        g.drawEllipse (rx, ry, rw, rw, 2.0f);
+    const juce::String getName() const override { return JucePlugin_Name; }
+    bool acceptsMidi() const override { return false; }
+    bool producesMidi() const override { return false; }
+    bool isMidiEffect() const override { return false; }
+    double getTailLengthSeconds() const override { return 0.0; }
 
-        // Индикатор
-        juce::Path p;
-        auto pointerLength = radius * 0.6f;
-        auto pointerThickness = 3.0f;
-        p.addRectangle (-pointerThickness * 0.5f, -radius, pointerThickness, pointerLength);
-        p.applyTransform (juce::AffineTransform::rotation (angle).translated (centreX, centreY));
-        
-        g.setColour (juce::Colour (0xffe65100));
-        g.fillPath (p);
-    }
-};
+    int getNumPrograms() override { return 1; }
+    int getCurrentProgram() override { return 0; }
+    void setCurrentProgram (int) override {}
+    const juce::String getProgramName (int) override { return {}; }
+    void changeProgramName (int, const juce::String&) override {}
 
-class IronCompressorAudioProcessorEditor : public juce::AudioProcessorEditor
-{
-public:
-    explicit IronCompressorAudioProcessorEditor (IronCompressorAudioProcessor&);
-    ~IronCompressorAudioProcessorEditor() override;
+    void getStateInformation (juce::MemoryBlock& destData) override;
+    void setStateInformation (const void* data, int sizeInBytes) override;
 
-    void paint (juce::Graphics&) override;
-    void resized() override;
+    juce::AudioProcessorValueTreeState apvts;
+    
+    // Переменные для UI (Gain Reduction)
+    std::atomic<float> currentGRL { 0.0f };
+    std::atomic<float> currentGRR { 0.0f };
 
 private:
-    IronCompressorAudioProcessor& audioProcessor;
-    IronLookAndFeel ironLnf;
+    juce::AudioProcessorValueTreeState::ParameterLayout createParameterLayout();
 
-    // Слайдеры
-    juce::Slider inputGainSlider, outputGainSlider, thresholdSlider, mixSlider;
+    double sr = 44100.0;
+    std::array<float, 2> envelope { 0.0f, 0.0f };
+
+    // Фильтры для Sidechain EQ, Mono Maker и AirBass
+    juce::dsp::IIR::Filter<float> sidechainFilter[2];
+    juce::dsp::IIR::Filter<float> monoMakerFilter[2];
+    juce::dsp::IIR::Filter<float> airBassFilter[2];
     
-    // Комбобоксы
-    juce::ComboBox biasBox, rectifierBox, attackBox, releaseBox, sidechainBox;
+    juce::SmoothedValue<float> inputGainSmoothed;
+    juce::SmoothedValue<float> outputGainSmoothed;
+    juce::SmoothedValue<float> mixSmoothed;
 
-    // Подписи (Labels)
-    juce::Label inputLabel, outputLabel, thresholdLabel, mixLabel;
-    juce::Label biasLabel, rectifierLabel, attackLabel, releaseLabel, sidechainLabel;
+    float attackCoeff  = 0.0f;
+    float releaseCoeff = 0.0f;
+    
+    int lastSidechainMode = -1;
+    int lastAirBassMode = -1;
 
-    using SliderAttachment = juce::AudioProcessorValueTreeState::SliderAttachment;
-    using ComboBoxAttachment = juce::AudioProcessorValueTreeState::ComboBoxAttachment;
+    void updateTimingCoefficients();
+    void updateFilters(int scMode, int airBassMode);
+    
+    static float dbToGain (float db) { return std::pow (10.0f, db / 20.0f); }
 
-    std::unique_ptr<SliderAttachment> inputAtt, outputAtt, thresholdAtt, mixAtt;
-    std::unique_ptr<ComboBoxAttachment> biasAtt, rectifierAtt, attackAtt, releaseAtt, sidechainAtt;
-
-    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (IronCompressorAudioProcessorEditor)
+    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (IronCompressorAudioProcessor)
 };
