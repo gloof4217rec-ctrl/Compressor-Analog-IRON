@@ -13,6 +13,10 @@ IronCompressorAudioProcessor::IronCompressorAudioProcessor()
         ch.timeOffset   = 0.95f + (r.nextFloat() * 0.1f);
         ch.biasOffset   = 0.98f + (r.nextFloat() * 0.04f);
     }
+
+    // Инициализация Oversampling (2 канала, 2 степени = 4x, IIR фильтр)
+    oversampler = std::make_unique<juce::dsp::Oversampling<float>>(
+        2, 2, juce::dsp::Oversampling<float>::filterHalfBandPolyphaseIIR, true, false);
 }
 
 IronCompressorAudioProcessor::~IronCompressorAudioProcessor() = default;
@@ -32,56 +36,62 @@ IronCompressorAudioProcessor::createParameterLayout()
         params.push_back(std::make_unique<juce::AudioParameterBool>(id, name, def));
     };
 
-    addFloat("outputGain", "Output", -12.0f, 12.0f, 0.0f);
     addFloat("mix", "Mix", 0.0f, 1.0f, 1.0f, 0.01f);
     addFloat("headroom", "Headroom", -6.0f, 6.0f, 0.0f);
     addFloat("stereoWidth", "Width", 0.0f, 2.0f, 1.0f, 0.01f);
     addFloat("monoMaker", "Mono Maker", 0.0f, 300.0f, 0.0f, 1.0f);
-    addChoice("sidechainEq", "SC EQ", { "Off", "Preset 1", "Preset 2", "Preset 3", "Preset 4" }, 0);
-    addChoice("airBass", "Air/Tape", { "Bypass", "AirBass", "Tape Roll-Off" }, 0);
-
+    
     addBool("link", "Link L->R", false);
     addBool("midSide", "M/S Mode", false);
-
-    // TMT Параметры
-    addBool("tmtEnable", "TMT Enable", true); // НОВЫЙ ПАРАМЕТР ВКЛ/ВЫКЛ
-    addBool("tmtStereoMode", "TMT Stereo", true); 
-    params.push_back(std::make_unique<juce::AudioParameterInt>("tmtChannel", "TMT Channel", 0, 9, 7));
+    addBool("tmtEnable", "TMT Enable", true);
+    addBool("tmtStereoMode", "TMT Analog", false);
+    params.push_back(std::make_unique<juce::AudioParameterInt>("tmtChannel", "TMT Channel", 0, 9, 3));
 
     addFloat("thresholdL", "Threshold L", -40.0f, 0.0f, -10.0f);
     addFloat("inputGainL", "Input L", -12.0f, 12.0f, 0.0f);
+    addFloat("outputGainL", "Output L", -12.0f, 12.0f, 0.0f);
     addChoice("biasL", "Bias L", { "Low", "Mid", "High" }, 0);
     addChoice("rectifierL", "Rectifier L", { "Germanium 1mF", "Germanium 2mF", "LED 3.3mF", "Silicon 330nF", "Germanium 220nF", "Silicon/Germ" }, 2);
     addChoice("attackL", "Attack L", { "0.1 ms", "0.2 ms", "0.5 ms", "1 ms", "2 ms", "5 ms" }, 2);
     addChoice("releaseL", "Release L", { "200 ms", "300 ms", "500 ms", "1 s", "2 s", "5 s" }, 2);
+    addChoice("airBassL", "Air/Tape L", { "Bypass", "AirBass", "Tape Roll-Off" }, 0);
+    addChoice("sidechainEqL", "SC EQ L", { "Off", "Preset 1", "Preset 2", "Preset 3", "Preset 4" }, 0);
 
     addFloat("thresholdR", "Threshold R", -40.0f, 0.0f, -10.0f);
     addFloat("inputGainR", "Input R", -12.0f, 12.0f, 0.0f);
+    addFloat("outputGainR", "Output R", -12.0f, 12.0f, 0.0f);
     addChoice("biasR", "Bias R", { "Low", "Mid", "High" }, 0);
     addChoice("rectifierR", "Rectifier R", { "Germanium 1mF", "Germanium 2mF", "LED 3.3mF", "Silicon 330nF", "Germanium 220nF", "Silicon/Germ" }, 2);
     addChoice("attackR", "Attack R", { "0.1 ms", "0.2 ms", "0.5 ms", "1 ms", "2 ms", "5 ms" }, 2);
     addChoice("releaseR", "Release R", { "200 ms", "300 ms", "500 ms", "1 s", "2 s", "5 s" }, 2);
+    addChoice("airBassR", "Air/Tape R", { "Bypass", "AirBass", "Tape Roll-Off" }, 0);
+    addChoice("sidechainEqR", "SC EQ R", { "Off", "Preset 1", "Preset 2", "Preset 3", "Preset 4" }, 0);
 
     return { params.begin(), params.end() };
 }
 
-void IronCompressorAudioProcessor::prepareToPlay (double sampleRate, int)
+void IronCompressorAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
 {
     sr = sampleRate;
     for (int ch = 0; ch < 2; ++ch) {
         inputGainSmoothed[ch].reset(sr, 0.02);
+        outputGainSmoothed[ch].reset(sr, 0.02);
         envelope[ch] = 0.0f;
+        optoState[ch] = 0.0f;
     }
-    outputGainSmoothed.reset(sr, 0.02);
     mixSmoothed.reset(sr, 0.02);
     headroomSmoothed.reset(sr, 0.02);
 
-    lastSidechainMode = -1;
-    lastAirBassMode = -1;
+    oversampler->initProcessing(samplesPerBlock);
+    oversampler->reset();
+
+    lastSidechainModeL = -1;
+    lastSidechainModeR = -1;
+    lastAirBassModeL = -1;
+    lastAirBassModeR = -1;
 }
 
 void IronCompressorAudioProcessor::releaseResources() {}
-
 bool IronCompressorAudioProcessor::isBusesLayoutSupported (const BusesLayout& layouts) const
 {
     return layouts.getMainInputChannelSet() == juce::AudioChannelSet::stereo()
@@ -90,46 +100,67 @@ bool IronCompressorAudioProcessor::isBusesLayoutSupported (const BusesLayout& la
 
 void IronCompressorAudioProcessor::updateTimingCoefficients(int attL, int relL, int recL, int attR, int relR, int recR)
 {
-    static constexpr float attackMs[6]  { 0.1f, 0.2f, 0.5f, 1.0f, 2.0f, 5.0f };
-    static constexpr float releaseMs[6] { 200.0f, 300.0f, 500.0f, 1000.0f, 2000.0f, 5000.0f };
-    static constexpr float rectAttackFactor[6]  { 1.3f, 1.1f, 1.5f, 0.6f, 1.0f, 0.8f };
-    static constexpr float rectReleaseFactor[6] { 1.4f, 1.2f, 1.8f, 0.5f, 0.9f, 0.7f };
+    // ТОЧНЫЕ ЗНАЧЕНИЯ ИЗ МАНУАЛА (Стр 15)
+    // [Rectifier][A+R Position 0-5]
+    static constexpr float attackTable[6][6] = {
+        { 0.1f, 6.0f, 10.0f, 18.0f, 30.0f, 50.0f }, // GE 1mF
+        { 1.0f, 15.0f, 30.0f, 40.0f, 50.0f, 70.0f }, // GE 2mF
+        { 3.0f, 35.0f, 70.0f, 100.0f, 150.0f, 220.0f }, // LED 3.3mF
+        { 0.5f, 3.0f, 5.0f, 8.0f, 9.0f, 12.0f }, // Si 330nF
+        { 0.3f, 1.5f, 3.0f, 5.0f, 7.0f, 9.0f }, // Ge 220nF
+        { 0.2f, 0.7f, 1.5f, 2.5f, 4.0f, 6.0f }  // Ge/Si 100nF
+    };
 
-    const float attackSecL  = (attackMs[attL]  * rectAttackFactor[recL])  / 1000.0f;
-    const float releaseSecL = (releaseMs[relL] * rectReleaseFactor[recL]) / 1000.0f;
-    attackCoeff[0]  = std::exp (-1.0f / (juce::jmax(attackSecL, 0.0001f)  * (float) sr));
-    releaseCoeff[0] = std::exp (-1.0f / (juce::jmax(releaseSecL, 0.0001f) * (float) sr));
+    static constexpr float releaseTable[6][6] = {
+        { 100.0f, 150.0f, 180.0f, 200.0f, 220.0f, 250.0f }, // GE 1mF
+        { 300.0f, 450.0f, 500.0f, 600.0f, 700.0f, 900.0f }, // GE 2mF
+        { 600.0f, 1000.0f, 1700.0f, 2500.0f, 3200.0f, 5000.0f }, // LED 3.3mF
+        { 80.0f, 120.0f, 160.0f, 180.0f, 220.0f, 300.0f }, // Si 330nF
+        { 30.0f, 50.0f, 70.0f, 80.0f, 120.0f, 130.0f }, // Ge 220nF
+        { 20.0f, 40.0f, 60.0f, 80.0f, 100.0f, 170.0f }  // Ge/Si 100nF
+    };
 
-    const float attackSecR  = (attackMs[attR]  * rectAttackFactor[recR])  / 1000.0f;
-    const float releaseSecR = (releaseMs[relR] * rectReleaseFactor[recR]) / 1000.0f;
-    attackCoeff[1]  = std::exp (-1.0f / (juce::jmax(attackSecR, 0.0001f)  * (float) sr));
-    releaseCoeff[1] = std::exp (-1.0f / (juce::jmax(releaseSecR, 0.0001f) * (float) sr));
+    float aSecL = attackTable[recL][attL] / 1000.0f;
+    float rSecL = releaseTable[recL][relL] / 1000.0f;
+    attackCoeff[0] = std::exp(-1.0f / (juce::jmax(aSecL, 0.0001f) * (float)sr));
+    releaseCoeff[0] = std::exp(-1.0f / (juce::jmax(rSecL, 0.0001f) * (float)sr));
+
+    float aSecR = attackTable[recR][attR] / 1000.0f;
+    float rSecR = releaseTable[recR][relR] / 1000.0f;
+    attackCoeff[1] = std::exp(-1.0f / (juce::jmax(aSecR, 0.0001f) * (float)sr));
+    releaseCoeff[1] = std::exp(-1.0f / (juce::jmax(rSecR, 0.0001f) * (float)sr));
 }
 
 void IronCompressorAudioProcessor::updateFilters()
 {
-    const int scMode = getChoice("sidechainEq");
-    const int airBassMode = getChoice("airBass");
-    const float monoFreq = getParam("monoMaker");
+    int scModeL = getChoice("sidechainEqL");
+    int scModeR = getChoice("sidechainEqR");
+    int airBassL = getChoice("airBassL");
+    int airBassR = getChoice("airBassR");
+    float monoFreq = getParam("monoMaker");
 
-    if (scMode != lastSidechainMode) {
-        for (int ch = 0; ch < 2; ++ch) {
-            if (scMode == 0) sidechainFilter[ch].coefficients = juce::dsp::IIR::Coefficients<float>::makeHighPass(sr, 20.0);
-            else if (scMode == 1) sidechainFilter[ch].coefficients = juce::dsp::IIR::Coefficients<float>::makeLowShelf(sr, 200.0, 0.7f, 0.5f);
-            else sidechainFilter[ch].coefficients = juce::dsp::IIR::Coefficients<float>::makeHighPass(sr, 20.0);
-        }
-        lastSidechainMode = scMode;
+    if (scModeL != lastSidechainModeL) {
+        if (scModeL == 0) sidechainFilter[0].coefficients = juce::dsp::IIR::Coefficients<float>::makeHighPass(sr, 20.0);
+        else if (scModeL == 1) sidechainFilter[0].coefficients = juce::dsp::IIR::Coefficients<float>::makeLowShelf(sr, 200.0, 0.7f, 0.5f);
+        else sidechainFilter[0].coefficients = juce::dsp::IIR::Coefficients<float>::makeHighPass(sr, 20.0);
+        lastSidechainModeL = scModeL;
+    }
+    if (scModeR != lastSidechainModeR) {
+        if (scModeR == 0) sidechainFilter[1].coefficients = juce::dsp::IIR::Coefficients<float>::makeHighPass(sr, 20.0);
+        else if (scModeR == 1) sidechainFilter[1].coefficients = juce::dsp::IIR::Coefficients<float>::makeLowShelf(sr, 200.0, 0.7f, 0.5f);
+        else sidechainFilter[1].coefficients = juce::dsp::IIR::Coefficients<float>::makeHighPass(sr, 20.0);
+        lastSidechainModeR = scModeR;
     }
 
-    if (airBassMode != lastAirBassMode) {
-        for (int ch = 0; ch < 2; ++ch) {
-            if (airBassMode == 1) {
-                airBassFilter[ch].coefficients = juce::dsp::IIR::Coefficients<float>::makeHighShelf(sr, 10000.0, 0.7f, 2.0f);
-            } else if (airBassMode == 2) {
-                airBassFilter[ch].coefficients = juce::dsp::IIR::Coefficients<float>::makeLowPass(sr, 15000.0);
-            }
-        }
-        lastAirBassMode = airBassMode;
+    if (airBassL != lastAirBassModeL) {
+        if (airBassL == 1) airBassFilter[0].coefficients = juce::dsp::IIR::Coefficients<float>::makeHighShelf(sr, 10000.0, 0.7f, 2.0f);
+        else if (airBassL == 2) airBassFilter[0].coefficients = juce::dsp::IIR::Coefficients<float>::makeLowPass(sr, 15000.0);
+        lastAirBassModeL = airBassL;
+    }
+    if (airBassR != lastAirBassModeR) {
+        if (airBassR == 1) airBassFilter[1].coefficients = juce::dsp::IIR::Coefficients<float>::makeHighShelf(sr, 10000.0, 0.7f, 2.0f);
+        else if (airBassR == 2) airBassFilter[1].coefficients = juce::dsp::IIR::Coefficients<float>::makeLowPass(sr, 15000.0);
+        lastAirBassModeR = airBassR;
     }
 
     if (monoFreq > 20.0f) {
@@ -144,28 +175,24 @@ void IronCompressorAudioProcessor::processBlock (juce::AudioBuffer<float>& buffe
     const int numSamples = buffer.getNumSamples();
     if (buffer.getNumChannels() < 2 || numSamples == 0) return;
 
+    // 1. OVERSAMPLING (4x)
+    juce::dsp::AudioBlock<float> block (buffer);
+    auto oversampledBlock = oversampler->processSamplesUp(block);
+
     const bool isLink = getParam("link") > 0.5f;
     const bool isMidSide = getParam("midSide") > 0.5f;
-    
-    // Проверяем, включен ли TMT
     const bool isTMTEnabled = getParam("tmtEnable") > 0.5f;
 
     const float headroom_dB = getParam("headroom");
     const float mix = getParam("mix");
-    const float outGain = dbToGain(getParam("outputGain"));
     const float width = getParam("stereoWidth");
     const float monoFreq = getParam("monoMaker");
 
     const bool tmtDigital = getParam("tmtStereoMode") > 0.5f;
     const int tmtCh = static_cast<int>(getParam("tmtChannel"));
-    
     int tmtIdxL = tmtCh * 2;
     int tmtIdxR = tmtDigital ? tmtCh * 2 : tmtCh * 2 + 1;
 
-    // Если TMT выключен, обнуляем индексы (сдвигаем на нулевой канал без отклонений)
-    // Но лучше просто игнорировать отклонения в математике ниже.
-    
-    // Получаем отклонения (или нули, если TMT выключен)
     float threshOffsetL = isTMTEnabled ? tmtChannels[tmtIdxL].threshOffset : 0.0f;
     float timeOffsetL   = isTMTEnabled ? tmtChannels[tmtIdxL].timeOffset   : 1.0f;
     float biasOffsetL   = isTMTEnabled ? tmtChannels[tmtIdxL].biasOffset   : 1.0f;
@@ -176,6 +203,7 @@ void IronCompressorAudioProcessor::processBlock (juce::AudioBuffer<float>& buffe
 
     float threshL_dB = getParam("thresholdL") + threshOffsetL;
     float inGainL = dbToGain(getParam("inputGainL"));
+    float outGainL = dbToGain(getParam("outputGainL"));
     const int biasL = getChoice("biasL");
     const int attackL = getChoice("attackL");
     const int releaseL = getChoice("releaseL");
@@ -183,17 +211,28 @@ void IronCompressorAudioProcessor::processBlock (juce::AudioBuffer<float>& buffe
 
     float threshR_dB = isLink ? threshL_dB : (getParam("thresholdR") + threshOffsetR);
     float inGainR = isLink ? inGainL : dbToGain(getParam("inputGainR"));
+    float outGainR = isLink ? outGainL : dbToGain(getParam("outputGainR"));
     const int biasR = isLink ? biasL : getChoice("biasR");
     const int attackR = isLink ? attackL : getChoice("attackR");
     const int releaseR = isLink ? releaseL : getChoice("releaseR");
     const int rectifierR = isLink ? rectifierL : getChoice("rectifierR");
 
     updateFilters();
+    
+    // sr внутри оверсэмплера удваивается 2 раза (4x)
+    double osSr = sr * 4.0; 
+    // updateTimingCoefficients использует sr, передадим osSr через локальную переменную или пересчитаем
+    float aSecL = 0, rSecL = 0, aSecR = 0, rSecR = 0;
+    // (Для простоты пересчета в оверсэмплинге, я временно подменю sr)
+    double originalSr = sr;
+    sr = osSr;
     updateTimingCoefficients(attackL, releaseL, rectifierL, attackR, releaseR, rectifierR);
+    sr = originalSr; // возвращаем обратно
 
     inputGainSmoothed[0].setTargetValue(inGainL);
     inputGainSmoothed[1].setTargetValue(inGainR);
-    outputGainSmoothed.setTargetValue(outGain);
+    outputGainSmoothed[0].setTargetValue(outGainL);
+    outputGainSmoothed[1].setTargetValue(outGainR);
     mixSmoothed.setTargetValue(mix);
     headroomSmoothed.setTargetValue(headroom_dB);
 
@@ -203,14 +242,15 @@ void IronCompressorAudioProcessor::processBlock (juce::AudioBuffer<float>& buffe
     float maxGR_dB_L = 0.0f;
     float maxGR_dB_R = 0.0f;
 
-    for (int n = 0; n < numSamples; ++n)
+    // Цикл по оверсэмплированным сэмплам
+    int osNumSamples = oversampledBlock.getNumSamples();
+    for (int n = 0; n < osNumSamples; ++n)
     {
         const float curHeadroom = headroomSmoothed.getNextValue();
         const float curMix = mixSmoothed.getNextValue();
-        const float curOutGain = outputGainSmoothed.getNextValue();
-
-        float inL = buffer.getSample(0, n) * inputGainSmoothed[0].getNextValue();
-        float inR = buffer.getSample(1, n) * inputGainSmoothed[1].getNextValue();
+        
+        float inL = oversampledBlock.getSample(0, n) * inputGainSmoothed[0].getNextValue();
+        float inR = oversampledBlock.getSample(1, n) * inputGainSmoothed[1].getNextValue();
 
         float leftSignal = inL;
         float rightSignal = inR;
@@ -255,22 +295,23 @@ void IronCompressorAudioProcessor::processBlock (juce::AudioBuffer<float>& buffe
         float cvL = (envL > threshLinL) ? juce::jlimit(0.0f, 1.0f, ((envL / threshLinL) - 1.0f) * biasMultL) : 0.0f;
         float cvR = (envR > threshLinR) ? juce::jlimit(0.0f, 1.0f, ((envR / threshLinR) - 1.0f) * biasMultR) : 0.0f;
 
-        if (cvL > 0.001f) {
-            float currentGR = juce::Decibels::gainToDecibels(1.0f - cvL, -100.0f);
-            maxGR_dB_L = juce::jmin(maxGR_dB_L, currentGR);
-        }
-        if (cvR > 0.001f) {
-            float currentGR = juce::Decibels::gainToDecibels(1.0f - cvR, -100.0f);
-            maxGR_dB_R = juce::jmin(maxGR_dB_R, currentGR);
-        }
+        // 2. ОПТО-ЛИМИТЕР (VTL5C1) - эффект памяти
+        // Сглаживаем CV, чтобы релиз был более плавным (имитация фоторезистора)
+        float optoCoeff = 0.00005f * (float)osSr; // скорость отклика оптрона
+        optoState[0] += (cvL - optoState[0]) * optoCoeff;
+        optoState[1] += (cvR - optoState[1]) * optoCoeff;
+        
+        float finalCvL = juce::jmax(cvL, optoState[0]); // Оптрон не дает мгновенно сбросить сжатие
+        float finalCvR = juce::jmax(cvR, optoState[1]);
 
-        float wetL = std::tanh(leftSignal * (1.0f - 0.6f * cvL));
-        float wetR = std::tanh(rightSignal * (1.0f - 0.6f * cvR));
+        if (finalCvL > 0.001f) maxGR_dB_L = juce::jmin(maxGR_dB_L, juce::Decibels::gainToDecibels(1.0f - finalCvL, -100.0f));
+        if (finalCvR > 0.001f) maxGR_dB_R = juce::jmin(maxGR_dB_R, juce::Decibels::gainToDecibels(1.0f - finalCvR, -100.0f));
 
-        if (getChoice("airBass") > 0) {
-            wetL = airBassFilter[0].processSample(wetL);
-            wetR = airBassFilter[1].processSample(wetR);
-        }
+        float wetL = std::tanh(leftSignal * (1.0f - 0.6f * finalCvL));
+        float wetR = std::tanh(rightSignal * (1.0f - 0.6f * finalCvR));
+
+        if (getChoice("airBassL") > 0) wetL = airBassFilter[0].processSample(wetL);
+        if (getChoice("airBassR") > 0) wetR = airBassFilter[1].processSample(wetR);
 
         float outL = (leftSignal * (1.0f - curMix)) + (wetL * curMix);
         float outR = (rightSignal * (1.0f - curMix)) + (wetR * curMix);
@@ -285,17 +326,18 @@ void IronCompressorAudioProcessor::processBlock (juce::AudioBuffer<float>& buffe
         float mid = (outL + outR) * 0.5f;
         float side = (outL - outR) * 0.5f;
 
-        if (monoFreq > 20.0f) {
-            side = monoMakerFilter[0].processSample(side);
-        }
+        if (monoFreq > 20.0f) side = monoMakerFilter[0].processSample(side);
         side *= width;
 
         outL = mid + side;
         outR = mid - side;
 
-        buffer.setSample(0, n, outL * curOutGain);
-        buffer.setSample(1, n, outR * curOutGain);
+        oversampledBlock.setSample(0, n, outL * outputGainSmoothed[0].getNextValue());
+        oversampledBlock.setSample(1, n, outR * outputGainSmoothed[1].getNextValue());
     }
+
+    // Downsample обратно
+    oversampler->processSamplesDown(block);
 
     currentGR_dB_L.store(maxGR_dB_L);
     currentGR_dB_R.store(maxGR_dB_R);
