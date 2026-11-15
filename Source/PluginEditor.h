@@ -5,18 +5,16 @@
 class AnalogVUMeter : public juce::Component
 {
 public:
-    AnalogVUMeter(const juce::String& title) : meterTitle(title) {}
+    AnalogVUMeter() {}
 
-    void setLevel(float newLevel) { targetLevel = juce::jlimit(-20.0f, 0.0f, newLevel); }
+    void setLevel(float newLevel) { targetLevel = juce::jlimit(-20.0f, 10.0f, newLevel); }
+    void setMode(int newMode) { currentMode = newMode; repaint(); } // 0=GR, 1=OUT, 2=OUT+10
 
     void paint(juce::Graphics& g) override
     {
         auto bounds = getLocalBounds().toFloat();
         g.setColour(juce::Colour(0xffffcc00));
         g.fillRoundedRectangle(bounds, 10.0f);
-        g.setColour(juce::Colours::black);
-        g.setFont(12.0f);
-        g.drawText(meterTitle, bounds.removeFromTop(20.0f), juce::Justification::centred);
         
         float centerX = getWidth() / 2.0f;
         float centerY = getHeight() - 10.0f;
@@ -25,9 +23,12 @@ public:
         float minAngle = juce::MathConstants<float>::pi * 1.2f;
         float maxAngle = juce::MathConstants<float>::pi * 1.8f;
 
+        g.setColour(juce::Colours::black);
         g.setFont(10.0f);
-        for (int db = 0; db >= -20; db -= 5) {
-            float normalized = juce::jmap((float)db, -20.0f, 0.0f, 0.0f, 1.0f);
+        
+        // Рисуем шкалу
+        for (int val = 0; val >= -20; val -= 5) {
+            float normalized = juce::jmap((float)val, -20.0f, 0.0f, 0.0f, 1.0f);
             float angle = minAngle + normalized * (maxAngle - minAngle);
             
             float tickX = centerX + std::cos(angle) * (radius + 5.0f);
@@ -36,11 +37,18 @@ public:
             
             float textX = centerX + std::cos(angle) * (radius - 15.0f);
             float textY = centerY + std::sin(angle) * (radius - 15.0f);
-            g.drawText(juce::String(db), textX - 10.0f, textY - 10.0f, 20.0f, 20.0f, juce::Justification::centred);
+            g.drawText(juce::String(val), textX - 10.0f, textY - 10.0f, 20.0f, 20.0f, juce::Justification::centred);
         }
-        
+
+        // Рисуем стрелку
         juce::Path needle;
-        float normalized = juce::jmap(currentLevel, -20.0f, 0.0f, 0.0f, 1.0f);
+        float currentVal = currentLevel;
+        if (currentMode == 2) currentVal = juce::jlimit(-10.0f, 10.0f, currentVal); // +10 mode
+        else currentVal = juce::jlimit(-20.0f, 0.0f, currentVal); // GR or OUT 0 mode
+
+        float normalized = juce::jmap(currentVal, -20.0f, 0.0f, 0.0f, 1.0f);
+        if (currentMode == 2) normalized = juce::jmap(currentVal, -10.0f, 10.0f, 0.0f, 1.0f);
+
         float angle = minAngle + normalized * (maxAngle - minAngle);
         needle.startNewSubPath(centerX, centerY);
         needle.lineTo(centerX + std::cos(angle) * radius, centerY + std::sin(angle) * radius);
@@ -54,9 +62,9 @@ public:
     void tick() { currentLevel += (targetLevel - currentLevel) * 0.2f; repaint(); }
 
 private:
-    juce::String meterTitle;
     float currentLevel = 0.0f;
     float targetLevel = 0.0f;
+    int currentMode = 0;
 };
 
 class IronLookAndFeel : public juce::LookAndFeel_V4 {
@@ -114,8 +122,9 @@ private:
     IronCompressorAudioProcessor& audioProcessor;
     IronLookAndFeel ironLnf;
 
-    AnalogVUMeter vuMeter_L {"GR L"};
-    AnalogVUMeter vuMeter_R {"GR R"};
+    AnalogVUMeter vuMeter_L;
+    AnalogVUMeter vuMeter_R;
+    juce::ComboBox vuSwitch_L, vuSwitch_R; // НОВЫЕ ПЕРЕКЛЮЧАТЕЛИ
 
     juce::ComboBox presetBox;
 
