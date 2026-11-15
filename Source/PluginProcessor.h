@@ -3,6 +3,12 @@
 #include <array>
 #include <atomic>
 
+struct TMTParams {
+    float threshOffset = 0.0f;
+    float timeOffset = 1.0f;   
+    float biasOffset = 1.0f;   
+};
+
 class IronCompressorAudioProcessor : public juce::AudioProcessor
 {
 public:
@@ -59,6 +65,8 @@ private:
 
     int lastSidechainMode = -1;
     int lastAirBassMode = -1;
+
+    std::array<TMTParams, 20> tmtChannels;
 
     float getParam(const juce::String& id) { return apvts.getRawParameterValue(id)->load(); }
     int getChoice(const juce::String& id) { return static_cast<int>(apvts.getRawParameterValue(id)->load()); }
