@@ -9,6 +9,53 @@ IronCompressorAudioProcessorEditor::IronCompressorAudioProcessorEditor (IronComp
     addAndMakeVisible(vuMeter_L);
     addAndMakeVisible(vuMeter_R);
 
+    // --- Настройка TMT UI ---
+    addAndMakeVisible(tmtEnableToggle);
+    addAndMakeVisible(tmtModeButton);
+    addAndMakeVisible(tmtLeftBtn);
+    addAndMakeVisible(tmtRightBtn);
+    addAndMakeVisible(tmtRandomBtn);
+    addAndMakeVisible(tmtDisplay);
+    addAndMakeVisible(tmtTitleLabel);
+
+    tmtTitleLabel.setText("TMT", juce::dontSendNotification);
+    tmtTitleLabel.setJustificationType(juce::Justification::centred);
+    tmtTitleLabel.setFont(juce::FontOptions(14.0f, juce::Font::bold));
+    
+    tmtDisplay.setJustificationType(juce::Justification::centred);
+    tmtDisplay.setFont(juce::FontOptions(24.0f, juce::Font::bold));
+    tmtDisplay.setColour(juce::Label::backgroundColourId, juce::Colour(0xff111111));
+    tmtDisplay.setColour(juce::Label::textColourId, juce::Colour(0xffcc0000));
+    
+    attTMTMode = std::make_unique<ButtonAttachment>(audioProcessor.apvts, "tmtStereoMode", tmtModeButton);
+    attTMTEnable = std::make_unique<ButtonAttachment>(audioProcessor.apvts, "tmtEnable", tmtEnableToggle);
+
+    tmtModeButton.onClick = [this]() {
+        bool isDigital = audioProcessor.apvts.getRawParameterValue("tmtStereoMode")->load() > 0.5f;
+        tmtModeButton.setButtonText(isDigital ? "A" : "D");
+    };
+    
+    tmtLeftBtn.onClick = [this]() {
+        auto* param = audioProcessor.apvts.getParameter("tmtChannel");
+        int current = static_cast<int>(param->getValue() * 9);
+        current = juce::jmax(0, current - 1);
+        param->setValueNotifyingHost(param->convertTo0to1((float)current));
+    };
+
+    tmtRightBtn.onClick = [this]() {
+        auto* param = audioProcessor.apvts.getParameter("tmtChannel");
+        int current = static_cast<int>(param->getValue() * 9);
+        current = juce::jmin(9, current + 1);
+        param->setValueNotifyingHost(param->convertTo0to1((float)current));
+    };
+
+    tmtRandomBtn.onClick = [this]() {
+        auto* param = audioProcessor.apvts.getParameter("tmtChannel");
+        int randomVal = juce::Random::getSystemRandom().nextInt(10);
+        param->setValueNotifyingHost(param->convertTo0to1((float)randomVal));
+    };
+
+    // --- Остальные контролы ---
     auto setupSlider = [this](juce::Slider& s, juce::Label& l, const juce::String& name) {
         s.setSliderStyle (juce::Slider::RotaryHorizontalVerticalDrag);
         s.setTextBoxStyle (juce::Slider::TextBoxBelow, false, 60, 20);
@@ -77,7 +124,7 @@ IronCompressorAudioProcessorEditor::IronCompressorAudioProcessorEditor (IronComp
     attLink = std::make_unique<ButtonAttachment>(audioProcessor.apvts, "link", linkButton);
     attMidSide = std::make_unique<ButtonAttachment>(audioProcessor.apvts, "midSide", midSideButton);
 
-    setSize (1000, 600);
+    setSize (1050, 700);
 }
 
 IronCompressorAudioProcessorEditor::~IronCompressorAudioProcessorEditor() { setLookAndFeel(nullptr); }
@@ -89,6 +136,33 @@ void IronCompressorAudioProcessorEditor::timerCallback()
     
     vuMeter_L.tick();
     vuMeter_R.tick();
+
+    // Проверяем, включен ли TMT
+    bool isTMTEnabled = audioProcessor.apvts.getRawParameterValue("tmtEnable")->load() > 0.5f;
+    
+    // Включаем/выключаем доступность элементов UI
+    tmtModeButton.setEnabled(isTMTEnabled);
+    tmtLeftBtn.setEnabled(isTMTEnabled);
+    tmtRightBtn.setEnabled(isTMTEnabled);
+    tmtRandomBtn.setEnabled(isTMTEnabled);
+    tmtDisplay.setAlpha(isTMTEnabled ? 1.0f : 0.4f); // Делаем дисплей полупрозрачным, если выключено
+
+    // Обновляем дисплей TMT, только если он активен
+    if (isTMTEnabled) {
+        auto* param = audioProcessor.apvts.getParameter("tmtChannel");
+        int current = static_cast<int>(param->getValue() * 9);
+        bool isDigital = audioProcessor.apvts.getRawParameterValue("tmtStereoMode")->load() > 0.5f;
+        
+        tmtModeButton.setButtonText(isDigital ? "A" : "D");
+        
+        if (isDigital) {
+            tmtDisplay.setText(juce::String(current * 2 + 1) + "-" + juce::String(current * 2 + 1), juce::dontSendNotification);
+        } else {
+            tmtDisplay.setText(juce::String(current * 2 + 1) + "-" + juce::String(current * 2 + 2), juce::dontSendNotification);
+        }
+    } else {
+        tmtDisplay.setText("OFF", juce::dontSendNotification);
+    }
 }
 
 void IronCompressorAudioProcessorEditor::paint (juce::Graphics& g)
@@ -108,105 +182,102 @@ void IronCompressorAudioProcessorEditor::paint (juce::Graphics& g)
 
 void IronCompressorAudioProcessorEditor::resized()
 {
-    auto area = getLocalBounds().reduced (20);
+    auto area = getLocalBounds();
     area.removeFromTop (60);
 
-    const int knobSize = 70;
+    const int knobSize = 75;
     const int comboHeight = 25;
     const int labelHeight = 18;
+    const int colWidth = 250;
 
-    auto leftSection = area.removeFromLeft (area.getWidth() / 2 - 10);
-    leftSection.reduce (10, 0);
+    // --- ЛЕВЫЙ КАНАЛ (X: 20) ---
+    int leftX = 20;
+    vuMeter_L.setBounds (leftX + 40, 70, 170, 70);
+    
+    labelInput_L.setBounds (leftX, 150, colWidth/2, labelHeight);
+    inputGainSlider_L.setBounds (leftX, 170, colWidth/2, knobSize + 20);
+    
+    labelThreshold_L.setBounds (leftX + colWidth/2, 150, colWidth/2, labelHeight);
+    thresholdSlider_L.setBounds (leftX + colWidth/2, 170, colWidth/2, knobSize + 20);
 
-    vuMeter_L.setBounds (leftSection.removeFromTop(70).withSizeKeepingCentre(160, 70)); // Чуть увеличили высоту для шкалы
-    leftSection.removeFromTop(10);
+    labelAttack_L.setBounds (leftX, 280, colWidth/2, labelHeight);
+    attackBox_L.setBounds (leftX, 300, colWidth/2 - 5, comboHeight);
+    
+    labelRelease_L.setBounds (leftX + colWidth/2, 280, colWidth/2, labelHeight);
+    releaseBox_L.setBounds (leftX + colWidth/2, 300, colWidth/2 - 5, comboHeight);
 
-    auto leftRow1 = leftSection.removeFromTop (110);
-    auto layoutLeftKnob = [&](juce::Slider& s, juce::Label& l, int width) {
-        auto itemArea = leftRow1.removeFromLeft (width);
-        l.setBounds (itemArea.removeFromTop (labelHeight));
-        s.setBounds (itemArea.withSizeKeepingCentre (knobSize, knobSize + 20));
-    };
-    layoutLeftKnob(thresholdSlider_L, labelThreshold_L, leftSection.getWidth() / 2);
-    layoutLeftKnob(inputGainSlider_L, labelInput_L, leftSection.getWidth() / 2);
+    labelBias_L.setBounds (leftX, 360, colWidth/2, labelHeight);
+    biasBox_L.setBounds (leftX, 380, colWidth/2 - 5, comboHeight);
+    
+    labelRectifier_L.setBounds (leftX + colWidth/2, 360, colWidth/2, labelHeight);
+    rectifierBox_L.setBounds (leftX + colWidth/2, 380, colWidth/2 - 5, comboHeight);
 
-    leftSection.removeFromTop (10);
-    auto leftRow2 = leftSection.removeFromTop (80);
-    int leftComboWidth = leftSection.getWidth() / 2;
-    auto layoutLeftCombo = [&](juce::ComboBox& c, juce::Label& l) {
-        auto itemArea = leftRow2.removeFromLeft (leftComboWidth);
-        itemArea.reduce (5, 0);
-        l.setBounds (itemArea.removeFromTop (labelHeight));
-        c.setBounds (itemArea.removeFromTop (comboHeight));
-    };
-    layoutLeftCombo(biasBox_L, labelBias_L);
-    layoutLeftCombo(rectifierBox_L, labelRectifier_L);
+    // --- ПРАВЫЙ КАНАЛ (X: 320) ---
+    int rightX = 320;
+    vuMeter_R.setBounds (rightX + 40, 70, 170, 70);
+    
+    labelInput_R.setBounds (rightX, 150, colWidth/2, labelHeight);
+    inputGainSlider_R.setBounds (rightX, 170, colWidth/2, knobSize + 20);
+    
+    labelThreshold_R.setBounds (rightX + colWidth/2, 150, colWidth/2, labelHeight);
+    thresholdSlider_R.setBounds (rightX + colWidth/2, 170, colWidth/2, knobSize + 20);
 
-    leftSection.removeFromTop (10);
-    auto leftRow3 = leftSection.removeFromTop (80);
-    layoutLeftCombo(attackBox_L, labelAttack_L);
-    layoutLeftCombo(releaseBox_L, labelRelease_L);
+    labelAttack_R.setBounds (rightX, 280, colWidth/2, labelHeight);
+    attackBox_R.setBounds (rightX, 300, colWidth/2 - 5, comboHeight);
+    
+    labelRelease_R.setBounds (rightX + colWidth/2, 280, colWidth/2, labelHeight);
+    releaseBox_R.setBounds (rightX + colWidth/2, 300, colWidth/2 - 5, comboHeight);
 
-    auto rightSection = area;
-    rightSection.reduce (10, 0);
+    labelBias_R.setBounds (rightX, 360, colWidth/2, labelHeight);
+    biasBox_R.setBounds (rightX, 380, colWidth/2 - 5, comboHeight);
+    
+    labelRectifier_R.setBounds (rightX + colWidth/2, 360, colWidth/2, labelHeight);
+    rectifierBox_R.setBounds (rightX + colWidth/2, 380, colWidth/2 - 5, comboHeight);
 
-    vuMeter_R.setBounds (rightSection.removeFromTop(70).withSizeKeepingCentre(160, 70));
-    rightSection.removeFromTop(10);
+    // --- ЦЕНТРАЛЬНАЯ СЕКЦИЯ (X: 620) ---
+    int centerX = 620;
+    
+    // Секция TMT
+    auto tmtArea = juce::Rectangle<int>(centerX + 20, 70, 390, 70);
+    
+    // Верхняя строка: Заголовок TMT и кнопка ВКЛ/ВЫКЛ
+    auto topRow = tmtArea.removeFromTop(20);
+    tmtTitleLabel.setBounds(topRow.removeFromLeft(50));
+    tmtEnableToggle.setBounds(topRow.removeFromLeft(50));
+    
+    auto btnArea = tmtArea;
+    tmtModeButton.setBounds (btnArea.removeFromLeft(50).reduced(2));
+    tmtLeftBtn.setBounds (btnArea.removeFromLeft(40).reduced(2));
+    tmtDisplay.setBounds (btnArea.removeFromLeft(120).reduced(2));
+    tmtRightBtn.setBounds (btnArea.removeFromLeft(40).reduced(2));
+    tmtRandomBtn.setBounds (btnArea.removeFromLeft(60).reduced(2));
 
-    auto rightRow1 = rightSection.removeFromTop (110);
-    auto layoutRightKnob = [&](juce::Slider& s, juce::Label& l, int width) {
-        auto itemArea = rightRow1.removeFromLeft (width);
-        l.setBounds (itemArea.removeFromTop (labelHeight));
-        s.setBounds (itemArea.withSizeKeepingCentre (knobSize, knobSize + 20));
-    };
-    layoutRightKnob(thresholdSlider_R, labelThreshold_R, rightSection.getWidth() / 2);
-    layoutRightKnob(inputGainSlider_R, labelInput_R, rightSection.getWidth() / 2);
+    // Ручки мастера (в 2 ряда)
+    int masterKnobW = 390 / 3;
+    
+    labelOutput.setBounds (centerX + 20, 160, masterKnobW, labelHeight);
+    outputGainSlider.setBounds (centerX + 20, 180, masterKnobW, knobSize + 20);
+    
+    labelMix.setBounds (centerX + 20 + masterKnobW, 160, masterKnobW, labelHeight);
+    mixSlider.setBounds (centerX + 20 + masterKnobW, 180, masterKnobW, knobSize + 20);
+    
+    labelHeadroom.setBounds (centerX + 20 + masterKnobW*2, 160, masterKnobW, labelHeight);
+    headroomSlider.setBounds (centerX + 20 + masterKnobW*2, 180, masterKnobW, knobSize + 20);
 
-    rightSection.removeFromTop (10);
-    auto rightRow2 = rightSection.removeFromTop (80);
-    int rightComboWidth = rightSection.getWidth() / 2;
-    auto layoutRightCombo = [&](juce::ComboBox& c, juce::Label& l) {
-        auto itemArea = rightRow2.removeFromLeft (rightComboWidth);
-        itemArea.reduce (5, 0);
-        l.setBounds (itemArea.removeFromTop (labelHeight));
-        c.setBounds (itemArea.removeFromTop (comboHeight));
-    };
-    layoutRightCombo(biasBox_R, labelBias_R);
-    layoutRightCombo(rectifierBox_R, labelRectifier_R);
+    labelWidth.setBounds (centerX + 20 + masterKnobW/2, 290, masterKnobW, labelHeight);
+    widthSlider.setBounds (centerX + 20 + masterKnobW/2, 310, masterKnobW, knobSize + 20);
+    
+    labelMono.setBounds (centerX + 20 + masterKnobW*2 - 30, 290, masterKnobW, labelHeight);
+    monoSlider.setBounds (centerX + 20 + masterKnobW*2 - 30, 310, masterKnobW, knobSize + 20);
 
-    rightSection.removeFromTop (10);
-    auto rightRow3 = rightSection.removeFromTop (80);
-    layoutRightCombo(attackBox_R, labelAttack_R);
-    layoutRightCombo(releaseBox_R, labelRelease_R);
+    // Нижние комбобоксы
+    labelSidechain.setBounds (centerX + 20, 430, 180, labelHeight);
+    sidechainBox.setBounds (centerX + 20, 450, 180, comboHeight);
 
-    auto bottomSection = getLocalBounds().removeFromBottom (180).reduced (20);
-    auto bottomRow1 = bottomSection.removeFromTop (100);
+    labelAirBass.setBounds (centerX + 210, 430, 180, labelHeight);
+    airBassBox.setBounds (centerX + 210, 450, 180, comboHeight);
 
-    int bottomKnobWidth = bottomSection.getWidth() / 5;
-    auto layoutBottomKnob = [&](juce::Slider& s, juce::Label& l) {
-        auto itemArea = bottomRow1.removeFromLeft (bottomKnobWidth);
-        l.setBounds (itemArea.removeFromTop (labelHeight));
-        s.setBounds (itemArea.withSizeKeepingCentre (knobSize, knobSize + 20));
-    };
-    layoutBottomKnob(outputGainSlider, labelOutput);
-    layoutBottomKnob(mixSlider, labelMix);
-    layoutBottomKnob(widthSlider, labelWidth);
-    layoutBottomKnob(monoSlider, labelMono);
-    layoutBottomKnob(headroomSlider, labelHeadroom);
-
-    auto switchArea = bottomSection.removeFromTop (40);
-    switchArea = switchArea.withSizeKeepingCentre (400, 40);
-    linkButton.setBounds(switchArea.removeFromLeft(200).reduced(10, 0));
-    midSideButton.setBounds(switchArea.removeFromLeft(200).reduced(10, 0));
-
-    auto bottomRow2 = bottomSection.removeFromTop (80);
-    int bottomComboWidth = bottomSection.getWidth() / 2;
-    auto layoutBottomCombo = [&](juce::ComboBox& c, juce::Label& l) {
-        auto itemArea = bottomRow2.removeFromLeft (bottomComboWidth);
-        itemArea.reduce (10, 0);
-        l.setBounds (itemArea.removeFromTop (labelHeight));
-        c.setBounds (itemArea.removeFromTop (comboHeight));
-    };
-    layoutBottomCombo(sidechainBox, labelSidechain);
-    layoutBottomCombo(airBassBox, labelAirBass);
+    // Переключатели Link и M/S
+    linkButton.setBounds (centerX + 20, 500, 180, 30);
+    midSideButton.setBounds (centerX + 210, 500, 180, 30);
 }
