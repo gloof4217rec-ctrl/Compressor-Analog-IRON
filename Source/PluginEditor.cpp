@@ -181,6 +181,32 @@ IronCompressorAudioProcessorEditor::IronCompressorAudioProcessorEditor (IronComp
     attLink = std::make_unique<ButtonAttachment>(audioProcessor.apvts, "link", linkButton);
     attMidSide = std::make_unique<ButtonAttachment>(audioProcessor.apvts, "midSide", midSideButton);
 
+    // ИСПРАВЛЕНИЕ LINK: Копируем параметры L -> R ТОЛЬКО при отключении кнопки
+    linkButton.onClick = [this]() {
+        if (!linkButton.getToggleState()) {
+            auto copyParam = [&](const juce::String& idL, const juce::String& idR) {
+                float val = audioProcessor.apvts.getRawParameterValue(idL)->load();
+                auto* paramR = audioProcessor.apvts.getParameter(idR);
+                paramR->setValueNotifyingHost(paramR->convertTo0to1(val));
+            };
+            copyParam("thresholdL", "thresholdR");
+            copyParam("inputGainL", "inputGainR");
+            copyParam("outputGainL", "outputGainR");
+            
+            auto copyChoice = [&](const juce::String& idL, const juce::String& idR) {
+                int idx = static_cast<int>(audioProcessor.apvts.getRawParameterValue(idL)->load());
+                auto* paramR = audioProcessor.apvts.getParameter(idR);
+                paramR->setValueNotifyingHost(paramR->convertTo0to1((float)idx));
+            };
+            copyChoice("biasL", "biasR");
+            copyChoice("rectifierL", "rectifierR");
+            copyChoice("attackL", "attackR");
+            copyChoice("releaseL", "releaseR");
+            copyChoice("airBassL", "airBassR");
+            copyChoice("sidechainEqL", "sidechainEqR");
+        }
+    };
+
     setSize (1100, 750);
 }
 
@@ -196,6 +222,7 @@ void IronCompressorAudioProcessorEditor::timerCallback()
     bool isTMTEnabled = audioProcessor.apvts.getRawParameterValue("tmtEnable")->load() > 0.5f;
     bool isLink = audioProcessor.apvts.getRawParameterValue("link")->load() > 0.5f;
     
+    // Блокируем контролы
     thresholdSlider_R.setEnabled(!isLink);
     inputGainSlider_R.setEnabled(!isLink);
     outputGainSlider_R.setEnabled(!isLink);
@@ -203,26 +230,20 @@ void IronCompressorAudioProcessorEditor::timerCallback()
     rectifierBox_R.setEnabled(!isLink);
     attackBox_R.setEnabled(!isLink);
     releaseBox_R.setEnabled(!isLink);
+    airBassBox_R.setEnabled(!isLink);
+    sidechainBox_R.setEnabled(!isLink);
 
+    // Визуальная синхронизация без вмешательства в звук
     if (isLink) {
-        auto updateParam = [&](const juce::String& idL, const juce::String& idR) {
-            float val = audioProcessor.apvts.getRawParameterValue(idL)->load();
-            auto* paramR = audioProcessor.apvts.getParameter(idR);
-            paramR->setValueNotifyingHost(paramR->convertTo0to1(val));
-        };
-        updateParam("thresholdL", "thresholdR");
-        updateParam("inputGainL", "inputGainR");
-        updateParam("outputGainL", "outputGainR");
-        
-        auto updateChoice = [&](const juce::String& idL, const juce::String& idR) {
-            int idx = static_cast<int>(audioProcessor.apvts.getRawParameterValue(idL)->load());
-            auto* paramR = audioProcessor.apvts.getParameter(idR);
-            paramR->setValueNotifyingHost(paramR->convertTo0to1((float)idx));
-        };
-        updateChoice("biasL", "biasR");
-        updateChoice("rectifierL", "rectifierR");
-        updateChoice("attackL", "attackR");
-        updateChoice("releaseL", "releaseR");
+        thresholdSlider_R.setValue(thresholdSlider_L.getValue(), juce::dontSendNotification);
+        inputGainSlider_R.setValue(inputGainSlider_L.getValue(), juce::dontSendNotification);
+        outputGainSlider_R.setValue(outputGainSlider_L.getValue(), juce::dontSendNotification);
+        biasBox_R.setSelectedItemIndex(biasBox_L.getSelectedItemIndex(), juce::dontSendNotification);
+        rectifierBox_R.setSelectedItemIndex(rectifierBox_L.getSelectedItemIndex(), juce::dontSendNotification);
+        attackBox_R.setSelectedItemIndex(attackBox_L.getSelectedItemIndex(), juce::dontSendNotification);
+        releaseBox_R.setSelectedItemIndex(releaseBox_L.getSelectedItemIndex(), juce::dontSendNotification);
+        airBassBox_R.setSelectedItemIndex(airBassBox_L.getSelectedItemIndex(), juce::dontSendNotification);
+        sidechainBox_R.setSelectedItemIndex(sidechainBox_L.getSelectedItemIndex(), juce::dontSendNotification);
     }
 
     tmtModeButton.setEnabled(isTMTEnabled);
@@ -250,16 +271,19 @@ void IronCompressorAudioProcessorEditor::timerCallback()
 
 void IronCompressorAudioProcessorEditor::paint (juce::Graphics& g)
 {
+    // 1. Загружаем текстуру
     static juce::Image bgTexture = juce::ImageFileFormat::loadFrom(
         BinaryData::bg_texture_jpg, 
         BinaryData::bg_texture_jpgSize
     );
 
+    // 2. Рисуем фон
     if (bgTexture.isValid())
     {
         g.drawImage(bgTexture, getLocalBounds().toFloat(), juce::RectanglePlacement::fillDestination);
         
-        g.setColour(juce::Colour(0xff8b0000)); 
+        // Красим в красный (сделали чуть ярче, чтобы текстура была видна)
+        g.setColour(juce::Colour(0xffb30000)); 
         g.setBlendMode(juce::BlendMode::multiply); 
         g.fillAll();
         
@@ -267,9 +291,11 @@ void IronCompressorAudioProcessorEditor::paint (juce::Graphics& g)
     }
     else
     {
-        g.fillAll (juce::Colour (0xff7a0000));
+        // ЕСЛИ ВЫ ВИДИТЕ ОРАНЖЕВЫЙ ФОН — ЗНАЧИТ КАРТИНКА НЕ ЗАГРУЗИЛАСЬ!
+        g.fillAll (juce::Colours::orange);
     }
 
+    // 3. Верхняя панель и заголовок
     g.setColour (juce::Colour (0xff1a1a1a));
     g.fillRect (0, 0, getWidth(), 60);
 
@@ -294,6 +320,7 @@ void IronCompressorAudioProcessorEditor::resized()
     const int labelHeight = 16;
     const int colW = 150;
 
+    // Левый канал
     int lx = 20;
     vuMeter_L.setBounds (lx + 10, 70, 280, 80);
     
@@ -319,6 +346,7 @@ void IronCompressorAudioProcessorEditor::resized()
     labelSidechain_L.setBounds (lx + 160, 520, colW, labelHeight);
     sidechainBox_L.setBounds (lx + 160, 540, colW, comboHeight);
 
+    // Правый канал
     int rx = 750;
     vuMeter_R.setBounds (rx + 10, 70, 280, 80);
     
@@ -344,6 +372,7 @@ void IronCompressorAudioProcessorEditor::resized()
     labelSidechain_R.setBounds (rx + 160, 520, colW, labelHeight);
     sidechainBox_R.setBounds (rx + 160, 540, colW, comboHeight);
 
+    // Центральная панель
     int cx = 400;
     tmtEnableToggle.setBounds(cx + 10, 70, 80, 24);
     tmtModeButton.setBounds (cx + 90, 70, 40, 24);
