@@ -32,6 +32,13 @@ target_sources(CompressorAnalogIRON PRIVATE
     Source/PluginEditor.cpp
 )
 
+# 👇 БЛОК ДЛЯ ВШИВАНИЯ КАРТИНКИ 👇
+juce_add_binary_data(CompressorAnalogIRON_BinaryData
+    SOURCES
+        Source/bg_texture.jpg
+)
+# 👆 КОНЕЦ БЛОКА 👆
+
 target_compile_features(CompressorAnalogIRON PRIVATE cxx_std_17)
 
 target_compile_definitions(CompressorAnalogIRON PRIVATE JUCE_IGNORE_VST3_MISMATCHED_PARAMETER_ID_WARNING=1)
@@ -40,6 +47,7 @@ target_link_libraries(CompressorAnalogIRON PRIVATE
     juce::juce_audio_utils
     juce::juce_audio_processors
     juce::juce_dsp
+    CompressorAnalogIRON_BinaryData # 👈 ДОБАВЛЕНО: Линкуем картинку
 )
 
 juce_generate_juce_header(CompressorAnalogIRON)
