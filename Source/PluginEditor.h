@@ -7,9 +7,7 @@ class AnalogVUMeter : public juce::Component
 public:
     AnalogVUMeter(const juce::String& title) : meterTitle(title) {}
 
-    void setLevel(float newLevel) {
-        targetLevel = juce::jlimit(-20.0f, 0.0f, newLevel); 
-    }
+    void setLevel(float newLevel) { targetLevel = juce::jlimit(-20.0f, 0.0f, newLevel); }
 
     void paint(juce::Graphics& g) override
     {
@@ -17,7 +15,6 @@ public:
         
         g.setColour(juce::Colour(0xffffcc00));
         g.fillRoundedRectangle(bounds, 10.0f);
-
         g.setColour(juce::Colours::black);
         g.setFont(12.0f);
         g.drawText(meterTitle, bounds.removeFromTop(20.0f), juce::Justification::centred);
@@ -29,43 +26,33 @@ public:
         float minAngle = juce::MathConstants<float>::pi * 1.2f;
         float maxAngle = juce::MathConstants<float>::pi * 1.8f;
 
-        // Рисуем шкалу и цифры (градация в дБ)
         g.setFont(10.0f);
         for (int db = 0; db >= -20; db -= 5) {
             float normalized = juce::jmap((float)db, -20.0f, 0.0f, 0.0f, 1.0f);
             float angle = minAngle + normalized * (maxAngle - minAngle);
             
-            // Точка на шкале
             float tickX = centerX + std::cos(angle) * (radius + 5.0f);
             float tickY = centerY + std::sin(angle) * (radius + 5.0f);
             g.fillEllipse(tickX - 2.0f, tickY - 2.0f, 4.0f, 4.0f);
             
-            // Текст (0, -5, -10...)
             float textX = centerX + std::cos(angle) * (radius - 15.0f);
             float textY = centerY + std::sin(angle) * (radius - 15.0f);
             g.drawText(juce::String(db), textX - 10.0f, textY - 10.0f, 20.0f, 20.0f, juce::Justification::centred);
         }
         
-        // Рисуем красную стрелку
         juce::Path needle;
         float normalized = juce::jmap(currentLevel, -20.0f, 0.0f, 0.0f, 1.0f);
         float angle = minAngle + normalized * (maxAngle - minAngle);
-
         needle.startNewSubPath(centerX, centerY);
         needle.lineTo(centerX + std::cos(angle) * radius, centerY + std::sin(angle) * radius);
         
         g.setColour(juce::Colour(0xffcc0000));
         g.strokePath(needle, juce::PathStrokeType(3.0f));
-        
         g.fillEllipse(centerX - 6.0f, centerY - 6.0f, 12.0f, 12.0f);
     }
 
     void resized() override {}
-
-    void tick() {
-        currentLevel += (targetLevel - currentLevel) * 0.2f;
-        repaint();
-    }
+    void tick() { currentLevel += (targetLevel - currentLevel) * 0.2f; repaint(); }
 
 private:
     juce::String meterTitle;
@@ -131,6 +118,16 @@ private:
     AnalogVUMeter vuMeter_L {"GR L"};
     AnalogVUMeter vuMeter_R {"GR R"};
 
+    // --- TMT UI Элементы ---
+    juce::ToggleButton tmtEnableToggle { "ON" }; // НОВАЯ КНОПКА
+    juce::TextButton tmtModeButton{"A"};
+    juce::TextButton tmtLeftBtn{"<"};
+    juce::TextButton tmtRightBtn{">"};
+    juce::TextButton tmtRandomBtn{"RND"};
+    juce::Label tmtDisplay;
+    juce::Label tmtTitleLabel;
+
+    // --- Слайдеры и комбо ---
     juce::Slider thresholdSlider_L, inputGainSlider_L;
     juce::ComboBox biasBox_L, rectifierBox_L, attackBox_L, releaseBox_L;
     juce::Label labelThreshold_L, labelInput_L, labelBias_L, labelRectifier_L, labelAttack_L, labelRelease_L;
@@ -156,7 +153,7 @@ private:
     std::unique_ptr<ComboBoxAttachment> attBias_L, attRectifier_L, attAttack_L, attRelease_L;
     std::unique_ptr<ComboBoxAttachment> attBias_R, attRectifier_R, attAttack_R, attRelease_R;
     std::unique_ptr<ComboBoxAttachment> attSidechain, attAirBass;
-    std::unique_ptr<ButtonAttachment> attLink, attMidSide;
+    std::unique_ptr<ButtonAttachment> attLink, attMidSide, attTMTMode, attTMTEnable;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (IronCompressorAudioProcessorEditor)
 };
