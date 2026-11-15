@@ -1,5 +1,4 @@
 #pragma once
-
 #include <JuceHeader.h>
 #include <array>
 #include <atomic>
@@ -34,35 +33,37 @@ public:
     void setStateInformation (const void* data, int sizeInBytes) override;
 
     juce::AudioProcessorValueTreeState apvts;
-    
-    // Переменные для UI (Gain Reduction)
-    std::atomic<float> currentGRL { 0.0f };
-    std::atomic<float> currentGRR { 0.0f };
+
+    // Потокобезопасные индикаторы Gain Reduction (в дБ)
+    std::atomic<float> currentGR_dB_L { 0.0f };
+    std::atomic<float> currentGR_dB_R { 0.0f };
 
 private:
     juce::AudioProcessorValueTreeState::ParameterLayout createParameterLayout();
+    void updateFilters();
+    void updateTimingCoefficients();
 
     double sr = 44100.0;
     std::array<float, 2> envelope { 0.0f, 0.0f };
 
-    // Фильтры
     juce::dsp::IIR::Filter<float> sidechainFilter[2];
     juce::dsp::IIR::Filter<float> monoMakerFilter[2];
     juce::dsp::IIR::Filter<float> airBassFilter[2];
-    
-    juce::SmoothedValue<float> inputGainSmoothed;
+
+    juce::SmoothedValue<float> inputGainSmoothed[2];
     juce::SmoothedValue<float> outputGainSmoothed;
     juce::SmoothedValue<float> mixSmoothed;
+    juce::SmoothedValue<float> headroomSmoothed;
 
-    float attackCoeff  = 0.0f;
-    float releaseCoeff = 0.0f;
-    
+    float attackCoeff[2]  { 0.0f, 0.0f };
+    float releaseCoeff[2] { 0.0f, 0.0f };
+
     int lastSidechainMode = -1;
     int lastAirBassMode = -1;
 
-    void updateTimingCoefficients();
-    void updateFilters(int scMode, int airBassMode);
-    
+    float getParam(const juce::String& id) { return apvts.getRawParameterValue(id)->load(); }
+    int getChoice(const juce::String& id) { return static_cast<int>(apvts.getRawParameterValue(id)->load()); }
+
     static float dbToGain (float db) { return std::pow (10.0f, db / 20.0f); }
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (IronCompressorAudioProcessor)
