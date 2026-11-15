@@ -118,7 +118,7 @@ void IronCompressorAudioProcessorEditor::resized()
     auto leftSection = area.removeFromLeft (area.getWidth() / 2 - 10);
     leftSection.reduce (10, 0);
 
-    vuMeter_L.setBounds (leftSection.removeFromTop(60).withSizeKeepingCentre(150, 60));
+    vuMeter_L.setBounds (leftSection.removeFromTop(70).withSizeKeepingCentre(160, 70)); // Чуть увеличили высоту для шкалы
     leftSection.removeFromTop(10);
 
     auto leftRow1 = leftSection.removeFromTop (110);
@@ -150,7 +150,7 @@ void IronCompressorAudioProcessorEditor::resized()
     auto rightSection = area;
     rightSection.reduce (10, 0);
 
-    vuMeter_R.setBounds (rightSection.removeFromTop(60).withSizeKeepingCentre(150, 60));
+    vuMeter_R.setBounds (rightSection.removeFromTop(70).withSizeKeepingCentre(160, 70));
     rightSection.removeFromTop(10);
 
     auto rightRow1 = rightSection.removeFromTop (110);
