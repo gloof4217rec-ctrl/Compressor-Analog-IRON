@@ -9,6 +9,7 @@ IronCompressorAudioProcessorEditor::IronCompressorAudioProcessorEditor (IronComp
     addAndMakeVisible(vuMeter_L);
     addAndMakeVisible(vuMeter_R);
 
+    // Настройка пресетов
     presetBox.addItem("Default", 1);
     presetBox.addItem("Vocal Bus", 2);
     presetBox.addItem("Drum Bus", 3);
@@ -62,6 +63,7 @@ IronCompressorAudioProcessorEditor::IronCompressorAudioProcessorEditor (IronComp
     };
     addAndMakeVisible(presetBox);
 
+    // Настройка TMT
     addAndMakeVisible(tmtEnableToggle);
     addAndMakeVisible(tmtModeButton);
     addAndMakeVisible(tmtLeftBtn);
@@ -102,6 +104,7 @@ IronCompressorAudioProcessorEditor::IronCompressorAudioProcessorEditor (IronComp
         param->setValueNotifyingHost(param->convertTo0to1((float)randomVal));
     };
 
+    // Вспомогательные функции
     auto setupSlider = [this](juce::Slider& s, juce::Label& l, const juce::String& name) {
         s.setSliderStyle (juce::Slider::RotaryHorizontalVerticalDrag);
         s.setTextBoxStyle (juce::Slider::TextBoxBelow, false, 60, 20);
@@ -119,6 +122,7 @@ IronCompressorAudioProcessorEditor::IronCompressorAudioProcessorEditor (IronComp
         addAndMakeVisible (l);
     };
 
+    // Левый канал
     setupSlider(thresholdSlider_L, labelThreshold_L, "THRESHOLD L");
     setupSlider(inputGainSlider_L, labelInput_L, "INPUT L");
     setupSlider(outputGainSlider_L, labelOutput_L, "OUTPUT L");
@@ -129,6 +133,7 @@ IronCompressorAudioProcessorEditor::IronCompressorAudioProcessorEditor (IronComp
     setupCombo(airBassBox_L, labelAirBass_L, "AIR/TAPE L", { "Bypass", "AirBass", "Tape Roll-Off" });
     setupCombo(sidechainBox_L, labelSidechain_L, "SC EQ L", { "Off", "Preset 1", "Preset 2", "Preset 3", "Preset 4" });
 
+    // Правый канал
     setupSlider(thresholdSlider_R, labelThreshold_R, "THRESHOLD R");
     setupSlider(inputGainSlider_R, labelInput_R, "INPUT R");
     setupSlider(outputGainSlider_R, labelOutput_R, "OUTPUT R");
@@ -139,6 +144,7 @@ IronCompressorAudioProcessorEditor::IronCompressorAudioProcessorEditor (IronComp
     setupCombo(airBassBox_R, labelAirBass_R, "AIR/TAPE R", { "Bypass", "AirBass", "Tape Roll-Off" });
     setupCombo(sidechainBox_R, labelSidechain_R, "SC EQ R", { "Off", "Preset 1", "Preset 2", "Preset 3", "Preset 4" });
 
+    // Мастер
     setupSlider(mixSlider, labelMix, "MIX");
     setupSlider(widthSlider, labelWidth, "WIDTH");
     setupSlider(monoSlider, labelMono, "MONO");
@@ -147,6 +153,7 @@ IronCompressorAudioProcessorEditor::IronCompressorAudioProcessorEditor (IronComp
     addAndMakeVisible(linkButton);
     addAndMakeVisible(midSideButton);
 
+    // Attachments
     attThreshold_L = std::make_unique<SliderAttachment>(audioProcessor.apvts, "thresholdL", thresholdSlider_L);
     attInput_L = std::make_unique<SliderAttachment>(audioProcessor.apvts, "inputGainL", inputGainSlider_L);
     attOutput_L = std::make_unique<SliderAttachment>(audioProcessor.apvts, "outputGainL", outputGainSlider_L);
@@ -198,13 +205,24 @@ void IronCompressorAudioProcessorEditor::timerCallback()
     releaseBox_R.setEnabled(!isLink);
 
     if (isLink) {
-        thresholdSlider_R.setValue(thresholdSlider_L.getValue(), juce::dontSendNotification);
-        inputGainSlider_R.setValue(inputGainSlider_L.getValue(), juce::dontSendNotification);
-        outputGainSlider_R.setValue(outputGainSlider_L.getValue(), juce::dontSendNotification);
-        biasBox_R.setSelectedItemIndex(biasBox_L.getSelectedItemIndex(), juce::dontSendNotification);
-        rectifierBox_R.setSelectedItemIndex(rectifierBox_L.getSelectedItemIndex(), juce::dontSendNotification);
-        attackBox_R.setSelectedItemIndex(attackBox_L.getSelectedItemIndex(), juce::dontSendNotification);
-        releaseBox_R.setSelectedItemIndex(releaseBox_L.getSelectedItemIndex(), juce::dontSendNotification);
+        auto updateParam = [&](const juce::String& idL, const juce::String& idR) {
+            float val = audioProcessor.apvts.getRawParameterValue(idL)->load();
+            auto* paramR = audioProcessor.apvts.getParameter(idR);
+            paramR->setValueNotifyingHost(paramR->convertTo0to1(val));
+        };
+        updateParam("thresholdL", "thresholdR");
+        updateParam("inputGainL", "inputGainR");
+        updateParam("outputGainL", "outputGainR");
+        
+        auto updateChoice = [&](const juce::String& idL, const juce::String& idR) {
+            int idx = static_cast<int>(audioProcessor.apvts.getRawParameterValue(idL)->load());
+            auto* paramR = audioProcessor.apvts.getParameter(idR);
+            paramR->setValueNotifyingHost(paramR->convertTo0to1((float)idx));
+        };
+        updateChoice("biasL", "biasR");
+        updateChoice("rectifierL", "rectifierR");
+        updateChoice("attackL", "attackR");
+        updateChoice("releaseL", "releaseR");
     }
 
     tmtModeButton.setEnabled(isTMTEnabled);
@@ -232,7 +250,26 @@ void IronCompressorAudioProcessorEditor::timerCallback()
 
 void IronCompressorAudioProcessorEditor::paint (juce::Graphics& g)
 {
-    g.fillAll (juce::Colour (0xff7a0000));
+    static juce::Image bgTexture = juce::ImageFileFormat::loadFrom(
+        BinaryData::bg_texture_jpg, 
+        BinaryData::bg_texture_jpgSize
+    );
+
+    if (bgTexture.isValid())
+    {
+        g.drawImage(bgTexture, getLocalBounds().toFloat(), juce::RectanglePlacement::fillDestination);
+        
+        g.setColour(juce::Colour(0xff8b0000)); 
+        g.setBlendMode(juce::BlendMode::multiply); 
+        g.fillAll();
+        
+        g.setBlendMode(juce::BlendMode::normal); 
+    }
+    else
+    {
+        g.fillAll (juce::Colour (0xff7a0000));
+    }
+
     g.setColour (juce::Colour (0xff1a1a1a));
     g.fillRect (0, 0, getWidth(), 60);
 
