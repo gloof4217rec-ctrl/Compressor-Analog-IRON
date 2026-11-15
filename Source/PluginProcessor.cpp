@@ -7,6 +7,12 @@ IronCompressorAudioProcessor::IronCompressorAudioProcessor()
                         .withOutput ("Output", juce::AudioChannelSet::stereo(), true)),
       apvts (*this, nullptr, "PARAMETERS", createParameterLayout())
 {
+    juce::Random r;
+    for (auto& ch : tmtChannels) {
+        ch.threshOffset = r.nextFloat() * 0.6f - 0.3f;
+        ch.timeOffset   = 0.95f + (r.nextFloat() * 0.1f);
+        ch.biasOffset   = 0.98f + (r.nextFloat() * 0.04f);
+    }
 }
 
 IronCompressorAudioProcessor::~IronCompressorAudioProcessor() = default;
@@ -36,6 +42,11 @@ IronCompressorAudioProcessor::createParameterLayout()
 
     addBool("link", "Link L->R", false);
     addBool("midSide", "M/S Mode", false);
+
+    // TMT Параметры
+    addBool("tmtEnable", "TMT Enable", true); // НОВЫЙ ПАРАМЕТР ВКЛ/ВЫКЛ
+    addBool("tmtStereoMode", "TMT Stereo", true); 
+    params.push_back(std::make_unique<juce::AudioParameterInt>("tmtChannel", "TMT Channel", 0, 9, 7));
 
     addFloat("thresholdL", "Threshold L", -40.0f, 0.0f, -10.0f);
     addFloat("inputGainL", "Input L", -12.0f, 12.0f, 0.0f);
@@ -135,6 +146,9 @@ void IronCompressorAudioProcessor::processBlock (juce::AudioBuffer<float>& buffe
 
     const bool isLink = getParam("link") > 0.5f;
     const bool isMidSide = getParam("midSide") > 0.5f;
+    
+    // Проверяем, включен ли TMT
+    const bool isTMTEnabled = getParam("tmtEnable") > 0.5f;
 
     const float headroom_dB = getParam("headroom");
     const float mix = getParam("mix");
@@ -142,14 +156,32 @@ void IronCompressorAudioProcessor::processBlock (juce::AudioBuffer<float>& buffe
     const float width = getParam("stereoWidth");
     const float monoFreq = getParam("monoMaker");
 
-    float threshL_dB = getParam("thresholdL");
+    const bool tmtDigital = getParam("tmtStereoMode") > 0.5f;
+    const int tmtCh = static_cast<int>(getParam("tmtChannel"));
+    
+    int tmtIdxL = tmtCh * 2;
+    int tmtIdxR = tmtDigital ? tmtCh * 2 : tmtCh * 2 + 1;
+
+    // Если TMT выключен, обнуляем индексы (сдвигаем на нулевой канал без отклонений)
+    // Но лучше просто игнорировать отклонения в математике ниже.
+    
+    // Получаем отклонения (или нули, если TMT выключен)
+    float threshOffsetL = isTMTEnabled ? tmtChannels[tmtIdxL].threshOffset : 0.0f;
+    float timeOffsetL   = isTMTEnabled ? tmtChannels[tmtIdxL].timeOffset   : 1.0f;
+    float biasOffsetL   = isTMTEnabled ? tmtChannels[tmtIdxL].biasOffset   : 1.0f;
+
+    float threshOffsetR = isTMTEnabled ? tmtChannels[tmtIdxR].threshOffset : 0.0f;
+    float timeOffsetR   = isTMTEnabled ? tmtChannels[tmtIdxR].timeOffset   : 1.0f;
+    float biasOffsetR   = isTMTEnabled ? tmtChannels[tmtIdxR].biasOffset   : 1.0f;
+
+    float threshL_dB = getParam("thresholdL") + threshOffsetL;
     float inGainL = dbToGain(getParam("inputGainL"));
     const int biasL = getChoice("biasL");
     const int attackL = getChoice("attackL");
     const int releaseL = getChoice("releaseL");
     const int rectifierL = getChoice("rectifierL");
 
-    float threshR_dB = isLink ? threshL_dB : getParam("thresholdR");
+    float threshR_dB = isLink ? threshL_dB : (getParam("thresholdR") + threshOffsetR);
     float inGainR = isLink ? inGainL : dbToGain(getParam("inputGainR"));
     const int biasR = isLink ? biasL : getChoice("biasR");
     const int attackR = isLink ? attackL : getChoice("attackR");
@@ -165,8 +197,8 @@ void IronCompressorAudioProcessor::processBlock (juce::AudioBuffer<float>& buffe
     mixSmoothed.setTargetValue(mix);
     headroomSmoothed.setTargetValue(headroom_dB);
 
-    const float biasMultL = (biasL == 0) ? 0.5f : ((biasL == 1) ? 1.0f : 2.0f);
-    const float biasMultR = (biasR == 0) ? 0.5f : ((biasR == 1) ? 1.0f : 2.0f);
+    const float biasMultL = ((biasL == 0) ? 0.5f : ((biasL == 1) ? 1.0f : 2.0f)) * biasOffsetL;
+    const float biasMultR = ((biasR == 0) ? 0.5f : ((biasR == 1) ? 1.0f : 2.0f)) * biasOffsetR;
 
     float maxGR_dB_L = 0.0f;
     float maxGR_dB_R = 0.0f;
@@ -183,20 +215,17 @@ void IronCompressorAudioProcessor::processBlock (juce::AudioBuffer<float>& buffe
         float leftSignal = inL;
         float rightSignal = inR;
 
-        // M/S Декодирование
         if (isMidSide) {
-            leftSignal = (inL + inR) * 0.5f; // Mid
-            rightSignal = (inL - inR) * 0.5f; // Side
+            leftSignal = (inL + inR) * 0.5f;
+            rightSignal = (inL - inR) * 0.5f;
         }
 
-        // ИСПРАВЛЕНИЕ: Инвертируем Headroom, чтобы положительное значение уменьшало компрессию
         float detectL = leftSignal * dbToGain(-curHeadroom);
         float detectR = rightSignal * dbToGain(-curHeadroom);
 
         float scL = sidechainFilter[0].processSample(detectL);
         float scR = sidechainFilter[1].processSample(detectR);
 
-        // ИСПРАВЛЕНИЕ: Если включен Link, для M/S мы берем максимальный уровень, чтобы избежать разбаланса
         if (isLink) {
             float maxSc = juce::jmax(std::abs(scL), std::abs(scR));
             scL = maxSc;
@@ -205,12 +234,17 @@ void IronCompressorAudioProcessor::processBlock (juce::AudioBuffer<float>& buffe
 
         float envL = envelope[0];
         float envR = envelope[1];
+        
+        float aCoeffL = 1.0f - (1.0f - attackCoeff[0]) * timeOffsetL;
+        float rCoeffL = 1.0f - (1.0f - releaseCoeff[0]) * timeOffsetL;
+        float aCoeffR = 1.0f - (1.0f - attackCoeff[1]) * timeOffsetR;
+        float rCoeffR = 1.0f - (1.0f - releaseCoeff[1]) * timeOffsetR;
 
-        if (std::abs(scL) > envL) envL = attackCoeff[0] * envL + (1.0f - attackCoeff[0]) * std::abs(scL);
-        else envL = releaseCoeff[0] * envL + (1.0f - releaseCoeff[0]) * std::abs(scL);
+        if (std::abs(scL) > envL) envL = aCoeffL * envL + (1.0f - aCoeffL) * std::abs(scL);
+        else envL = rCoeffL * envL + (1.0f - rCoeffL) * std::abs(scL);
 
-        if (std::abs(scR) > envR) envR = attackCoeff[1] * envR + (1.0f - attackCoeff[1]) * std::abs(scR);
-        else envR = releaseCoeff[1] * envR + (1.0f - releaseCoeff[1]) * std::abs(scR);
+        if (std::abs(scR) > envR) envR = aCoeffR * envR + (1.0f - aCoeffR) * std::abs(scR);
+        else envR = rCoeffR * envR + (1.0f - rCoeffR) * std::abs(scR);
 
         envelope[0] = envL;
         envelope[1] = envR;
@@ -241,7 +275,6 @@ void IronCompressorAudioProcessor::processBlock (juce::AudioBuffer<float>& buffe
         float outL = (leftSignal * (1.0f - curMix)) + (wetL * curMix);
         float outR = (rightSignal * (1.0f - curMix)) + (wetR * curMix);
 
-        // M/S Обратное кодирование
         if (isMidSide) {
             float tempL = outL + outR;
             float tempR = outL - outR;
@@ -249,7 +282,6 @@ void IronCompressorAudioProcessor::processBlock (juce::AudioBuffer<float>& buffe
             outR = tempR;
         }
 
-        // Стерео-обработка
         float mid = (outL + outR) * 0.5f;
         float side = (outL - outR) * 0.5f;
 
