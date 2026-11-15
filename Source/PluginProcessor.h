@@ -40,8 +40,11 @@ public:
 
     juce::AudioProcessorValueTreeState apvts;
 
+    // Индикаторы для UI
     std::atomic<float> currentGR_dB_L { 0.0f };
     std::atomic<float> currentGR_dB_R { 0.0f };
+    std::atomic<float> currentOut_dB_L { -100.0f };
+    std::atomic<float> currentOut_dB_R { -100.0f };
 
 private:
     juce::AudioProcessorValueTreeState::ParameterLayout createParameterLayout();
