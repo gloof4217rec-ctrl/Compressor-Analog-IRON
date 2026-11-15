@@ -2,6 +2,7 @@
 
 #include <JuceHeader.h>
 #include <array>
+#include <atomic>
 
 class IronCompressorAudioProcessor : public juce::AudioProcessor
 {
@@ -33,6 +34,10 @@ public:
     void setStateInformation (const void* data, int sizeInBytes) override;
 
     juce::AudioProcessorValueTreeState apvts;
+    
+    // Переменные для UI (Gain Reduction)
+    std::atomic<float> currentGRL { 0.0f };
+    std::atomic<float> currentGRR { 0.0f };
 
 private:
     juce::AudioProcessorValueTreeState::ParameterLayout createParameterLayout();
@@ -40,10 +45,11 @@ private:
     double sr = 44100.0;
     std::array<float, 2> envelope { 0.0f, 0.0f };
 
-    // Фильтры боковой цепи (Sidechain)
-    juce::dsp::IIR::Filter<float> sidechainHPF[2];
-    juce::dsp::IIR::Filter<float> sidechainPreset[2];
-
+    // Фильтры
+    juce::dsp::IIR::Filter<float> sidechainFilter[2];
+    juce::dsp::IIR::Filter<float> monoMakerFilter[2];
+    juce::dsp::IIR::Filter<float> airBassFilter[2];
+    
     juce::SmoothedValue<float> inputGainSmoothed;
     juce::SmoothedValue<float> outputGainSmoothed;
     juce::SmoothedValue<float> mixSmoothed;
@@ -51,10 +57,12 @@ private:
     float attackCoeff  = 0.0f;
     float releaseCoeff = 0.0f;
     
-    // Для отслеживания изменений параметров
     int lastSidechainMode = -1;
+    int lastAirBassMode = -1;
 
     void updateTimingCoefficients();
+    void updateFilters(int scMode, int airBassMode);
+    
     static float dbToGain (float db) { return std::pow (10.0f, db / 20.0f); }
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (IronCompressorAudioProcessor)
