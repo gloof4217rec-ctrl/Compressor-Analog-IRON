@@ -8,7 +8,7 @@ public:
     AnalogVUMeter() {}
 
     void setLevel(float newLevel) { targetLevel = juce::jlimit(-20.0f, 10.0f, newLevel); }
-    void setMode(int newMode) { currentMode = newMode; repaint(); } // 0=GR, 1=OUT, 2=OUT+10
+    void setMode(int newMode) { currentMode = newMode; repaint(); }
 
     void paint(juce::Graphics& g) override
     {
@@ -26,7 +26,6 @@ public:
         g.setColour(juce::Colours::black);
         g.setFont(10.0f);
         
-        // Рисуем шкалу
         for (int val = 0; val >= -20; val -= 5) {
             float normalized = juce::jmap((float)val, -20.0f, 0.0f, 0.0f, 1.0f);
             float angle = minAngle + normalized * (maxAngle - minAngle);
@@ -40,11 +39,10 @@ public:
             g.drawText(juce::String(val), textX - 10.0f, textY - 10.0f, 20.0f, 20.0f, juce::Justification::centred);
         }
 
-        // Рисуем стрелку
         juce::Path needle;
         float currentVal = currentLevel;
-        if (currentMode == 2) currentVal = juce::jlimit(-10.0f, 10.0f, currentVal); // +10 mode
-        else currentVal = juce::jlimit(-20.0f, 0.0f, currentVal); // GR or OUT 0 mode
+        if (currentMode == 2) currentVal = juce::jlimit(-10.0f, 10.0f, currentVal);
+        else currentVal = juce::jlimit(-20.0f, 0.0f, currentVal);
 
         float normalized = juce::jmap(currentVal, -20.0f, 0.0f, 0.0f, 1.0f);
         if (currentMode == 2) normalized = juce::jmap(currentVal, -10.0f, 10.0f, 0.0f, 1.0f);
@@ -124,7 +122,7 @@ private:
 
     AnalogVUMeter vuMeter_L;
     AnalogVUMeter vuMeter_R;
-    juce::ComboBox vuSwitch_L, vuSwitch_R; // НОВЫЕ ПЕРЕКЛЮЧАТЕЛИ
+    juce::ComboBox vuSwitch_L, vuSwitch_R; // ДОБАВЛЕНО
 
     juce::ComboBox presetBox;
 
