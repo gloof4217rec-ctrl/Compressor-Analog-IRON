@@ -2,6 +2,59 @@
 #include <JuceHeader.h>
 #include "PluginProcessor.h"
 
+class AnalogVUMeter : public juce::Component
+{
+public:
+    AnalogVUMeter(const juce::String& title) : meterTitle(title) {}
+
+    void setLevel(float newLevel) {
+        targetLevel = juce::jlimit(-20.0f, 0.0f, newLevel); 
+    }
+
+    void paint(juce::Graphics& g) override
+    {
+        auto bounds = getLocalBounds().toFloat();
+        
+        g.setColour(juce::Colour(0xffffcc00));
+        g.fillRoundedRectangle(bounds, 10.0f);
+
+        g.setColour(juce::Colours::black);
+        g.setFont(12.0f);
+        g.drawText(meterTitle, bounds.removeFromTop(20.0f), juce::Justification::centred);
+        
+        juce::Path needle;
+        float centerX = getWidth() / 2.0f;
+        float centerY = getHeight() - 10.0f;
+        float radius = getHeight() - 30.0f;
+
+        float minAngle = juce::MathConstants<float>::pi * 1.2f;
+        float maxAngle = juce::MathConstants<float>::pi * 1.8f;
+        
+        float normalized = juce::jmap(currentLevel, -20.0f, 0.0f, 0.0f, 1.0f);
+        float angle = minAngle + normalized * (maxAngle - minAngle);
+
+        needle.startNewSubPath(centerX, centerY);
+        needle.lineTo(centerX + std::cos(angle) * radius, centerY + std::sin(angle) * radius);
+        
+        g.setColour(juce::Colour(0xffcc0000));
+        g.strokePath(needle, juce::PathStrokeType(3.0f));
+        
+        g.fillEllipse(centerX - 6.0f, centerY - 6.0f, 12.0f, 12.0f);
+    }
+
+    void resized() override {}
+
+    void tick() {
+        currentLevel += (targetLevel - currentLevel) * 0.2f;
+        repaint();
+    }
+
+private:
+    juce::String meterTitle;
+    float currentLevel = 0.0f;
+    float targetLevel = 0.0f;
+};
+
 class IronLookAndFeel : public juce::LookAndFeel_V4 {
 public:
     IronLookAndFeel() {
@@ -12,6 +65,8 @@ public:
         setColour (juce::ComboBox::textColourId, juce::Colours::white);
         setColour (juce::ComboBox::outlineColourId, juce::Colour (0xff555555));
         setColour (juce::Label::textColourId, juce::Colours::white);
+        setColour (juce::ToggleButton::textColourId, juce::Colours::white);
+        setColour (juce::ToggleButton::tickColourId, juce::Colour (0xffe65100));
     }
 
     void drawRotarySlider (juce::Graphics& g, int x, int y, int width, int height, float sliderPos,
@@ -35,7 +90,7 @@ public:
         auto pointerThickness = 3.0f;
         p.addRectangle (-pointerThickness * 0.5f, -radius, pointerThickness, pointerLength);
         p.applyTransform (juce::AffineTransform::rotation (angle).translated (centreX, centreY));
-        
+
         g.setColour (juce::Colour (0xffe65100));
         g.fillPath (p);
     }
@@ -55,20 +110,35 @@ private:
     IronCompressorAudioProcessor& audioProcessor;
     IronLookAndFeel ironLnf;
 
-    juce::Slider inputGainSlider, outputGainSlider, thresholdSlider, mixSlider;
-    juce::Slider widthSlider, monoSlider;
-    
-    juce::ComboBox biasLBox, biasRBox, rectifierBox, attackBox, releaseBox, sidechainBox, airBassBox;
-    juce::Label inputLabel, outputLabel, thresholdLabel, mixLabel, widthLabel, monoLabel;
-    juce::Label biasLLabel, biasRLabel, rectifierLabel, attackLabel, releaseLabel, sidechainLabel, airBassLabel;
+    AnalogVUMeter vuMeter_L {"GR L"};
+    AnalogVUMeter vuMeter_R {"GR R"};
 
-    juce::Label grDisplay;
+    juce::Slider thresholdSlider_L, inputGainSlider_L;
+    juce::ComboBox biasBox_L, rectifierBox_L, attackBox_L, releaseBox_L;
+    juce::Label labelThreshold_L, labelInput_L, labelBias_L, labelRectifier_L, labelAttack_L, labelRelease_L;
+
+    juce::Slider thresholdSlider_R, inputGainSlider_R;
+    juce::ComboBox biasBox_R, rectifierBox_R, attackBox_R, releaseBox_R;
+    juce::Label labelThreshold_R, labelInput_R, labelBias_R, labelRectifier_R, labelAttack_R, labelRelease_R;
+
+    juce::Slider outputGainSlider, mixSlider, widthSlider, monoSlider, headroomSlider;
+    juce::Label labelOutput, labelMix, labelWidth, labelMono, labelHeadroom;
+    juce::ComboBox sidechainBox, airBassBox;
+    juce::Label labelSidechain, labelAirBass;
+
+    juce::ToggleButton linkButton { "Link L/R" };
+    juce::ToggleButton midSideButton { "M/S Mode" };
 
     using SliderAttachment = juce::AudioProcessorValueTreeState::SliderAttachment;
     using ComboBoxAttachment = juce::AudioProcessorValueTreeState::ComboBoxAttachment;
+    using ButtonAttachment = juce::AudioProcessorValueTreeState::ButtonAttachment;
 
-    std::unique_ptr<SliderAttachment> inputAtt, outputAtt, thresholdAtt, mixAtt, widthAtt, monoAtt;
-    std::unique_ptr<ComboBoxAttachment> biasLAtt, biasRAtt, rectifierAtt, attackAtt, releaseAtt, sidechainAtt, airBassAtt;
+    std::unique_ptr<SliderAttachment> attThreshold_L, attInput_L, attThreshold_R, attInput_R;
+    std::unique_ptr<SliderAttachment> attOutput, attMix, attWidth, attMono, attHeadroom;
+    std::unique_ptr<ComboBoxAttachment> attBias_L, attRectifier_L, attAttack_L, attRelease_L;
+    std::unique_ptr<ComboBoxAttachment> attBias_R, attRectifier_R, attAttack_R, attRelease_R;
+    std::unique_ptr<ComboBoxAttachment> attSidechain, attAirBass;
+    std::unique_ptr<ButtonAttachment> attLink, attMidSide;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (IronCompressorAudioProcessorEditor)
 };
