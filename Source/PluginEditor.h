@@ -1,69 +1,40 @@
 #pragma once
-
 #include <JuceHeader.h>
-#include <array>
-#include <atomic>
+#include "PluginProcessor.h"
 
-class IronCompressorAudioProcessor : public juce::AudioProcessor
+class IronLookAndFeel : public juce::LookAndFeel_V4 {
+    // ... (Оставляем ваш код из предыдущего шага без изменений) ...
+};
+
+class IronCompressorAudioProcessorEditor : public juce::AudioProcessorEditor, public juce::Timer
 {
 public:
-    IronCompressorAudioProcessor();
-    ~IronCompressorAudioProcessor() override;
+    explicit IronCompressorAudioProcessorEditor (IronCompressorAudioProcessor&);
+    ~IronCompressorAudioProcessorEditor() override;
 
-    void prepareToPlay (double sampleRate, int samplesPerBlock) override;
-    void releaseResources() override;
-    bool isBusesLayoutSupported (const BusesLayout& layouts) const override;
-    void processBlock (juce::AudioBuffer<float>&, juce::MidiBuffer&) override;
-
-    juce::AudioProcessorEditor* createEditor() override;
-    bool hasEditor() const override { return true; }
-
-    const juce::String getName() const override { return JucePlugin_Name; }
-    bool acceptsMidi() const override { return false; }
-    bool producesMidi() const override { return false; }
-    bool isMidiEffect() const override { return false; }
-    double getTailLengthSeconds() const override { return 0.0; }
-
-    int getNumPrograms() override { return 1; }
-    int getCurrentProgram() override { return 0; }
-    void setCurrentProgram (int) override {}
-    const juce::String getProgramName (int) override { return {}; }
-    void changeProgramName (int, const juce::String&) override {}
-
-    void getStateInformation (juce::MemoryBlock& destData) override;
-    void setStateInformation (const void* data, int sizeInBytes) override;
-
-    juce::AudioProcessorValueTreeState apvts;
-    
-    // Переменные для UI (Gain Reduction)
-    std::atomic<float> currentGRL { 0.0f };
-    std::atomic<float> currentGRR { 0.0f };
+    void paint (juce::Graphics&) override;
+    void resized() override;
+    void timerCallback() override; // Для обновления GR
 
 private:
-    juce::AudioProcessorValueTreeState::ParameterLayout createParameterLayout();
+    IronCompressorAudioProcessor& audioProcessor;
+    IronLookAndFeel ironLnf;
 
-    double sr = 44100.0;
-    std::array<float, 2> envelope { 0.0f, 0.0f };
-
-    // Фильтры для Sidechain EQ, Mono Maker и AirBass
-    juce::dsp::IIR::Filter<float> sidechainFilter[2];
-    juce::dsp::IIR::Filter<float> monoMakerFilter[2];
-    juce::dsp::IIR::Filter<float> airBassFilter[2];
+    juce::Slider inputGainSlider, outputGainSlider, thresholdSlider, mixSlider;
+    juce::Slider widthSlider, monoSlider; // Новые ручки
     
-    juce::SmoothedValue<float> inputGainSmoothed;
-    juce::SmoothedValue<float> outputGainSmoothed;
-    juce::SmoothedValue<float> mixSmoothed;
+    juce::ComboBox biasLBox, biasRBox, rectifierBox, attackBox, releaseBox, sidechainBox, airBassBox;
+    juce::Label inputLabel, outputLabel, thresholdLabel, mixLabel, widthLabel, monoLabel;
+    juce::Label biasLLabel, biasRLabel, rectifierLabel, attackLabel, releaseLabel, sidechainLabel, airBassLabel;
 
-    float attackCoeff  = 0.0f;
-    float releaseCoeff = 0.0f;
-    
-    int lastSidechainMode = -1;
-    int lastAirBassMode = -1;
+    // Окошко для Gain Reduction
+    juce::Label grDisplay;
 
-    void updateTimingCoefficients();
-    void updateFilters(int scMode, int airBassMode);
-    
-    static float dbToGain (float db) { return std::pow (10.0f, db / 20.0f); }
+    using SliderAttachment = juce::AudioProcessorValueTreeState::SliderAttachment;
+    using ComboBoxAttachment = juce::AudioProcessorValueTreeState::ComboBoxAttachment;
 
-    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (IronCompressorAudioProcessor)
+    std::unique_ptr<SliderAttachment> inputAtt, outputAtt, thresholdAtt, mixAtt, widthAtt, monoAtt;
+    std::unique_ptr<ComboBoxAttachment> biasLAtt, biasRAtt, rectifierAtt, attackAtt, releaseAtt, sidechainAtt, airBassAtt;
+
+    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (IronCompressorAudioProcessorEditor)
 };
