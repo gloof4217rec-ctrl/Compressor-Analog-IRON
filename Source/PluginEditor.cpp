@@ -4,7 +4,7 @@ IronCompressorAudioProcessorEditor::IronCompressorAudioProcessorEditor (IronComp
     : AudioProcessorEditor (&p), audioProcessor (p)
 {
     setLookAndFeel (&ironLnf);
-    startTimerHz(30); // Запускаем таймер для обновления окошка GR 30 раз в секунду
+    startTimerHz(30); // Запускаем таймер
 
     auto setupSlider = [this](juce::Slider& s, juce::Label& l, const juce::String& name) {
         s.setSliderStyle (juce::Slider::RotaryHorizontalVerticalDrag);
@@ -38,15 +38,13 @@ IronCompressorAudioProcessorEditor::IronCompressorAudioProcessorEditor (IronComp
     setupCombo(sidechainBox, sidechainLabel, "SC EQ", { "Off", "Preset 1", "Preset 2", "Preset 3", "Preset 4" });
     setupCombo(airBassBox, airBassLabel, "AIR / TAPE", { "Bypass", "AirBass", "Tape Roll-Off" });
 
-    // Настройка окошка Gain Reduction
-    grDisplay.setText("0.0 dB", juce::dontSendNotification);
+    grDisplay.setText("0.0 %", juce::dontSendNotification);
     grDisplay.setJustificationType(juce::Justification::centred);
     grDisplay.setFont(juce::FontOptions(20.0f, juce::Font::bold));
     grDisplay.setColour(juce::Label::backgroundColourId, juce::Colour(0xff111111));
     grDisplay.setColour(juce::Label::textColourId, juce::Colour(0xffe65100));
     addAndMakeVisible(grDisplay);
 
-    // Привязка параметров
     inputAtt = std::make_unique<SliderAttachment> (audioProcessor.apvts, "inputGain", inputGainSlider);
     outputAtt = std::make_unique<SliderAttachment> (audioProcessor.apvts, "outputGain", outputGainSlider);
     thresholdAtt = std::make_unique<SliderAttachment> (audioProcessor.apvts, "threshold", thresholdSlider);
@@ -62,18 +60,14 @@ IronCompressorAudioProcessorEditor::IronCompressorAudioProcessorEditor (IronComp
     sidechainAtt = std::make_unique<ComboBoxAttachment> (audioProcessor.apvts, "sidechainEq", sidechainBox);
     airBassAtt = std::make_unique<ComboBoxAttachment> (audioProcessor.apvts, "airBass", airBassBox);
 
-    setSize (800, 520); // Немного увеличили окно
+    setSize (800, 520);
 }
 
 IronCompressorAudioProcessorEditor::~IronCompressorAudioProcessorEditor() { setLookAndFeel(nullptr); }
 
 void IronCompressorAudioProcessorEditor::timerCallback()
 {
-    // Считываем уровень сжатия из аудио-потока
     float gr = audioProcessor.currentGRL.load();
-    
-    // Переводим в проценты для отображения (0-1 -> 0-100%)
-    // Можно выводить в дБ, если хотите.
     if (gr < 0.01f) grDisplay.setText("0.0 %", juce::dontSendNotification);
     else grDisplay.setText(juce::String(gr * 100.0f, 1) + " %", juce::dontSendNotification);
 }
@@ -91,6 +85,12 @@ void IronCompressorAudioProcessorEditor::paint (juce::Graphics& g)
     g.setColour (juce::Colour (0xffaaaaaa));
     g.setFont (14.0f);
     g.drawText ("Parallel Dual-Tube Compressor", 160, 15, 300, 30, juce::Justification::centredLeft);
+
+    // Рисуем рамку вокруг окошка GR (Перенесено из resized)
+    if (grDisplay.getBounds().getWidth() > 0) {
+        g.setColour(juce::Colours::white);
+        g.drawRoundedRectangle(grDisplay.getBounds().toFloat(), 5.0f, 2.0f);
+    }
 }
 
 void IronCompressorAudioProcessorEditor::resized()
@@ -99,9 +99,8 @@ void IronCompressorAudioProcessorEditor::resized()
     area.removeFromTop (50);
 
     const int knobSize = 80;
-    int sectionWidth = getWidth() / 6; // Теперь 6 колонок
+    int sectionWidth = getWidth() / 6;
 
-    // --- Ряд 1: Слайдеры ---
     auto row1 = area.removeFromTop (130);
     auto layoutKnob = [&](juce::Slider& s, juce::Label& l) {
         auto itemArea = row1.removeFromLeft (sectionWidth);
@@ -118,7 +117,6 @@ void IronCompressorAudioProcessorEditor::resized()
 
     area.removeFromTop (10);
 
-    // --- Ряд 2: Комбобоксы ---
     auto row2 = area.removeFromTop (100);
     int comboWidth = getWidth() / 7;
     auto layoutCombo = [&](juce::ComboBox& c, juce::Label& l) {
@@ -136,13 +134,8 @@ void IronCompressorAudioProcessorEditor::resized()
     layoutCombo(sidechainBox, sidechainLabel);
     layoutCombo(airBassBox, airBassLabel);
 
-    // --- Ряд 3: Окошко GR ---
     area.removeFromTop (20);
     auto row3 = area.removeFromTop (60);
     auto grArea = row3.withSizeKeepingCentre (200, 50);
-    
-    // Рисуем рамку вокруг окошка
-    juce::Rectangle<int> labelBounds = grArea;
-    g.drawRoundedRectangle (labelBounds.toFloat(), 5.0f, 2.0f); // Не забываем про paint
-    grDisplay.setBounds (labelBounds);
+    grDisplay.setBounds (grArea);
 }
