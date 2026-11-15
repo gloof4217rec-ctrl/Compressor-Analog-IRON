@@ -22,14 +22,32 @@ public:
         g.setFont(12.0f);
         g.drawText(meterTitle, bounds.removeFromTop(20.0f), juce::Justification::centred);
         
-        juce::Path needle;
         float centerX = getWidth() / 2.0f;
         float centerY = getHeight() - 10.0f;
         float radius = getHeight() - 30.0f;
 
         float minAngle = juce::MathConstants<float>::pi * 1.2f;
         float maxAngle = juce::MathConstants<float>::pi * 1.8f;
+
+        // Рисуем шкалу и цифры (градация в дБ)
+        g.setFont(10.0f);
+        for (int db = 0; db >= -20; db -= 5) {
+            float normalized = juce::jmap((float)db, -20.0f, 0.0f, 0.0f, 1.0f);
+            float angle = minAngle + normalized * (maxAngle - minAngle);
+            
+            // Точка на шкале
+            float tickX = centerX + std::cos(angle) * (radius + 5.0f);
+            float tickY = centerY + std::sin(angle) * (radius + 5.0f);
+            g.fillEllipse(tickX - 2.0f, tickY - 2.0f, 4.0f, 4.0f);
+            
+            // Текст (0, -5, -10...)
+            float textX = centerX + std::cos(angle) * (radius - 15.0f);
+            float textY = centerY + std::sin(angle) * (radius - 15.0f);
+            g.drawText(juce::String(db), textX - 10.0f, textY - 10.0f, 20.0f, 20.0f, juce::Justification::centred);
+        }
         
+        // Рисуем красную стрелку
+        juce::Path needle;
         float normalized = juce::jmap(currentLevel, -20.0f, 0.0f, 0.0f, 1.0f);
         float angle = minAngle + normalized * (maxAngle - minAngle);
 
