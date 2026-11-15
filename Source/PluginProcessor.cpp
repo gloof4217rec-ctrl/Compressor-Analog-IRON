@@ -77,24 +77,22 @@ bool IronCompressorAudioProcessor::isBusesLayoutSupported (const BusesLayout& la
         && layouts.getMainOutputChannelSet() == juce::AudioChannelSet::stereo();
 }
 
-void IronCompressorAudioProcessor::updateTimingCoefficients()
+void IronCompressorAudioProcessor::updateTimingCoefficients(int attL, int relL, int recL, int attR, int relR, int recR)
 {
     static constexpr float attackMs[6]  { 0.1f, 0.2f, 0.5f, 1.0f, 2.0f, 5.0f };
     static constexpr float releaseMs[6] { 200.0f, 300.0f, 500.0f, 1000.0f, 2000.0f, 5000.0f };
     static constexpr float rectAttackFactor[6]  { 1.3f, 1.1f, 1.5f, 0.6f, 1.0f, 0.8f };
     static constexpr float rectReleaseFactor[6] { 1.4f, 1.2f, 1.8f, 0.5f, 0.9f, 0.7f };
 
-    for (int ch = 0; ch < 2; ++ch) {
-        const int attIdx = getChoice(ch == 0 ? "attackL" : "attackR");
-        const int relIdx = getChoice(ch == 0 ? "releaseL" : "releaseR");
-        const int recIdx = getChoice(ch == 0 ? "rectifierL" : "rectifierR");
+    const float attackSecL  = (attackMs[attL]  * rectAttackFactor[recL])  / 1000.0f;
+    const float releaseSecL = (releaseMs[relL] * rectReleaseFactor[recL]) / 1000.0f;
+    attackCoeff[0]  = std::exp (-1.0f / (juce::jmax(attackSecL, 0.0001f)  * (float) sr));
+    releaseCoeff[0] = std::exp (-1.0f / (juce::jmax(releaseSecL, 0.0001f) * (float) sr));
 
-        const float attackSec  = (attackMs[attIdx]  * rectAttackFactor[recIdx])  / 1000.0f;
-        const float releaseSec = (releaseMs[relIdx] * rectReleaseFactor[recIdx]) / 1000.0f;
-
-        attackCoeff[ch]  = std::exp (-1.0f / (juce::jmax(attackSec, 0.0001f)  * (float) sr));
-        releaseCoeff[ch] = std::exp (-1.0f / (juce::jmax(releaseSec, 0.0001f) * (float) sr));
-    }
+    const float attackSecR  = (attackMs[attR]  * rectAttackFactor[recR])  / 1000.0f;
+    const float releaseSecR = (releaseMs[relR] * rectReleaseFactor[recR]) / 1000.0f;
+    attackCoeff[1]  = std::exp (-1.0f / (juce::jmax(attackSecR, 0.0001f)  * (float) sr));
+    releaseCoeff[1] = std::exp (-1.0f / (juce::jmax(releaseSecR, 0.0001f) * (float) sr));
 }
 
 void IronCompressorAudioProcessor::updateFilters()
@@ -147,13 +145,19 @@ void IronCompressorAudioProcessor::processBlock (juce::AudioBuffer<float>& buffe
     float threshL_dB = getParam("thresholdL");
     float inGainL = dbToGain(getParam("inputGainL"));
     const int biasL = getChoice("biasL");
+    const int attackL = getChoice("attackL");
+    const int releaseL = getChoice("releaseL");
+    const int rectifierL = getChoice("rectifierL");
 
     float threshR_dB = isLink ? threshL_dB : getParam("thresholdR");
     float inGainR = isLink ? inGainL : dbToGain(getParam("inputGainR"));
     const int biasR = isLink ? biasL : getChoice("biasR");
+    const int attackR = isLink ? attackL : getChoice("attackR");
+    const int releaseR = isLink ? releaseL : getChoice("releaseR");
+    const int rectifierR = isLink ? rectifierL : getChoice("rectifierR");
 
     updateFilters();
-    updateTimingCoefficients();
+    updateTimingCoefficients(attackL, releaseL, rectifierL, attackR, releaseR, rectifierR);
 
     inputGainSmoothed[0].setTargetValue(inGainL);
     inputGainSmoothed[1].setTargetValue(inGainR);
@@ -176,18 +180,28 @@ void IronCompressorAudioProcessor::processBlock (juce::AudioBuffer<float>& buffe
         float inL = buffer.getSample(0, n) * inputGainSmoothed[0].getNextValue();
         float inR = buffer.getSample(1, n) * inputGainSmoothed[1].getNextValue();
 
-        float detectL = inL * dbToGain(curHeadroom);
-        float detectR = inR * dbToGain(curHeadroom);
+        float leftSignal = inL;
+        float rightSignal = inR;
 
+        // M/S Декодирование
         if (isMidSide) {
-            const float mid = (detectL + detectR) * 0.5f;
-            const float side = (detectL - detectR) * 0.5f;
-            detectL = mid;
-            detectR = side;
+            leftSignal = (inL + inR) * 0.5f; // Mid
+            rightSignal = (inL - inR) * 0.5f; // Side
         }
 
-        const float scL = sidechainFilter[0].processSample(detectL);
-        const float scR = sidechainFilter[1].processSample(detectR);
+        // ИСПРАВЛЕНИЕ: Инвертируем Headroom, чтобы положительное значение уменьшало компрессию
+        float detectL = leftSignal * dbToGain(-curHeadroom);
+        float detectR = rightSignal * dbToGain(-curHeadroom);
+
+        float scL = sidechainFilter[0].processSample(detectL);
+        float scR = sidechainFilter[1].processSample(detectR);
+
+        // ИСПРАВЛЕНИЕ: Если включен Link, для M/S мы берем максимальный уровень, чтобы избежать разбаланса
+        if (isLink) {
+            float maxSc = juce::jmax(std::abs(scL), std::abs(scR));
+            scL = maxSc;
+            scR = maxSc;
+        }
 
         float envL = envelope[0];
         float envR = envelope[1];
@@ -216,31 +230,36 @@ void IronCompressorAudioProcessor::processBlock (juce::AudioBuffer<float>& buffe
             maxGR_dB_R = juce::jmin(maxGR_dB_R, currentGR);
         }
 
-        float wetL = std::tanh(inL * (1.0f - 0.6f * cvL));
-        float wetR = std::tanh(inR * (1.0f - 0.6f * cvR));
+        float wetL = std::tanh(leftSignal * (1.0f - 0.6f * cvL));
+        float wetR = std::tanh(rightSignal * (1.0f - 0.6f * cvR));
 
         if (getChoice("airBass") > 0) {
             wetL = airBassFilter[0].processSample(wetL);
             wetR = airBassFilter[1].processSample(wetR);
         }
 
-        float outL = (inL * (1.0f - curMix)) + (wetL * curMix);
-        float outR = (inR * (1.0f - curMix)) + (wetR * curMix);
+        float outL = (leftSignal * (1.0f - curMix)) + (wetL * curMix);
+        float outR = (rightSignal * (1.0f - curMix)) + (wetR * curMix);
+
+        // M/S Обратное кодирование
+        if (isMidSide) {
+            float tempL = outL + outR;
+            float tempR = outL - outR;
+            outL = tempL;
+            outR = tempR;
+        }
+
+        // Стерео-обработка
+        float mid = (outL + outR) * 0.5f;
+        float side = (outL - outR) * 0.5f;
 
         if (monoFreq > 20.0f) {
-            const float mid = (outL + outR) * 0.5f;
-            float side = (outL - outR) * 0.5f;
             side = monoMakerFilter[0].processSample(side);
-            side *= width;
-            outL = mid + side;
-            outR = mid - side;
-        } else {
-            const float mid = (outL + outR) * 0.5f;
-            float side = (outL - outR) * 0.5f;
-            side *= width;
-            outL = mid + side;
-            outR = mid - side;
         }
+        side *= width;
+
+        outL = mid + side;
+        outR = mid - side;
 
         buffer.setSample(0, n, outL * curOutGain);
         buffer.setSample(1, n, outR * curOutGain);
