@@ -4,7 +4,7 @@ IronCompressorAudioProcessorEditor::IronCompressorAudioProcessorEditor (IronComp
     : AudioProcessorEditor (&p), audioProcessor (p)
 {
     setLookAndFeel (&ironLnf);
-    startTimerHz(30); // Запускаем таймер
+    startTimerHz(30);
 
     auto setupSlider = [this](juce::Slider& s, juce::Label& l, const juce::String& name) {
         s.setSliderStyle (juce::Slider::RotaryHorizontalVerticalDrag);
@@ -86,7 +86,6 @@ void IronCompressorAudioProcessorEditor::paint (juce::Graphics& g)
     g.setFont (14.0f);
     g.drawText ("Parallel Dual-Tube Compressor", 160, 15, 300, 30, juce::Justification::centredLeft);
 
-    // Рисуем рамку вокруг окошка GR (Перенесено из resized)
     if (grDisplay.getBounds().getWidth() > 0) {
         g.setColour(juce::Colours::white);
         g.drawRoundedRectangle(grDisplay.getBounds().toFloat(), 5.0f, 2.0f);
