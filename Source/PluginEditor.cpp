@@ -1,5 +1,30 @@
 #include "PluginEditor.h"
 
+// Вспомогательная функция для покраски текстуры (эффект Multiply)
+static juce::Image createTintedImage(const juce::Image& source, juce::Colour tint)
+{
+    if (!source.isValid()) return source;
+    
+    juce::Image result(juce::Image::ARGB, source.getWidth(), source.getHeight(), true);
+    juce::Image::BitmapData srcData(source, juce::Image::BitmapData::readOnly);
+    juce::Image::BitmapData dstData(result, juce::Image::BitmapData::writeOnly);
+    
+    for (int y = 0; y < source.getHeight(); ++y)
+    {
+        for (int x = 0; x < source.getWidth(); ++x)
+        {
+            juce::Colour c = srcData.getPixelColour(x, y);
+            // Умножаем цвет текстуры на цвет краски (Multiply)
+            juce::uint8 r = (juce::uint8)((c.getRed() * tint.getRed()) / 255);
+            juce::uint8 g = (juce::uint8)((c.getGreen() * tint.getGreen()) / 255);
+            juce::uint8 b = (juce::uint8)((c.getBlue() * tint.getBlue()) / 255);
+            
+            dstData.setPixelColour(x, y, juce::Colour(r, g, b).withAlpha(c.getAlpha()));
+        }
+    }
+    return result;
+}
+
 IronCompressorAudioProcessorEditor::IronCompressorAudioProcessorEditor (IronCompressorAudioProcessor& p)
     : AudioProcessorEditor (&p), audioProcessor (p)
 {
@@ -9,7 +34,7 @@ IronCompressorAudioProcessorEditor::IronCompressorAudioProcessorEditor (IronComp
     addAndMakeVisible(vuMeter_L);
     addAndMakeVisible(vuMeter_R);
 
-    // Настройка пресетов
+    // Пресеты
     presetBox.addItem("Default", 1);
     presetBox.addItem("Vocal Bus", 2);
     presetBox.addItem("Drum Bus", 3);
@@ -63,7 +88,7 @@ IronCompressorAudioProcessorEditor::IronCompressorAudioProcessorEditor (IronComp
     };
     addAndMakeVisible(presetBox);
 
-    // Настройка TMT
+    // TMT
     addAndMakeVisible(tmtEnableToggle);
     addAndMakeVisible(tmtModeButton);
     addAndMakeVisible(tmtLeftBtn);
@@ -104,7 +129,7 @@ IronCompressorAudioProcessorEditor::IronCompressorAudioProcessorEditor (IronComp
         param->setValueNotifyingHost(param->convertTo0to1((float)randomVal));
     };
 
-    // Вспомогательные функции
+    // Слайдеры и комбо
     auto setupSlider = [this](juce::Slider& s, juce::Label& l, const juce::String& name) {
         s.setSliderStyle (juce::Slider::RotaryHorizontalVerticalDrag);
         s.setTextBoxStyle (juce::Slider::TextBoxBelow, false, 60, 20);
@@ -122,7 +147,6 @@ IronCompressorAudioProcessorEditor::IronCompressorAudioProcessorEditor (IronComp
         addAndMakeVisible (l);
     };
 
-    // Левый канал
     setupSlider(thresholdSlider_L, labelThreshold_L, "THRESHOLD L");
     setupSlider(inputGainSlider_L, labelInput_L, "INPUT L");
     setupSlider(outputGainSlider_L, labelOutput_L, "OUTPUT L");
@@ -133,7 +157,6 @@ IronCompressorAudioProcessorEditor::IronCompressorAudioProcessorEditor (IronComp
     setupCombo(airBassBox_L, labelAirBass_L, "AIR/TAPE L", { "Bypass", "AirBass", "Tape Roll-Off" });
     setupCombo(sidechainBox_L, labelSidechain_L, "SC EQ L", { "Off", "Preset 1", "Preset 2", "Preset 3", "Preset 4" });
 
-    // Правый канал
     setupSlider(thresholdSlider_R, labelThreshold_R, "THRESHOLD R");
     setupSlider(inputGainSlider_R, labelInput_R, "INPUT R");
     setupSlider(outputGainSlider_R, labelOutput_R, "OUTPUT R");
@@ -144,7 +167,6 @@ IronCompressorAudioProcessorEditor::IronCompressorAudioProcessorEditor (IronComp
     setupCombo(airBassBox_R, labelAirBass_R, "AIR/TAPE R", { "Bypass", "AirBass", "Tape Roll-Off" });
     setupCombo(sidechainBox_R, labelSidechain_R, "SC EQ R", { "Off", "Preset 1", "Preset 2", "Preset 3", "Preset 4" });
 
-    // Мастер
     setupSlider(mixSlider, labelMix, "MIX");
     setupSlider(widthSlider, labelWidth, "WIDTH");
     setupSlider(monoSlider, labelMono, "MONO");
@@ -181,7 +203,7 @@ IronCompressorAudioProcessorEditor::IronCompressorAudioProcessorEditor (IronComp
     attLink = std::make_unique<ButtonAttachment>(audioProcessor.apvts, "link", linkButton);
     attMidSide = std::make_unique<ButtonAttachment>(audioProcessor.apvts, "midSide", midSideButton);
 
-    // ИСПРАВЛЕНИЕ LINK: Копируем параметры L -> R ТОЛЬКО при отключении кнопки
+    // ФИКС LINK: копируем только при отжатии
     linkButton.onClick = [this]() {
         if (!linkButton.getToggleState()) {
             auto copyParam = [&](const juce::String& idL, const juce::String& idR) {
@@ -222,7 +244,6 @@ void IronCompressorAudioProcessorEditor::timerCallback()
     bool isTMTEnabled = audioProcessor.apvts.getRawParameterValue("tmtEnable")->load() > 0.5f;
     bool isLink = audioProcessor.apvts.getRawParameterValue("link")->load() > 0.5f;
     
-    // Блокируем контролы
     thresholdSlider_R.setEnabled(!isLink);
     inputGainSlider_R.setEnabled(!isLink);
     outputGainSlider_R.setEnabled(!isLink);
@@ -233,7 +254,6 @@ void IronCompressorAudioProcessorEditor::timerCallback()
     airBassBox_R.setEnabled(!isLink);
     sidechainBox_R.setEnabled(!isLink);
 
-    // Визуальная синхронизация без вмешательства в звук
     if (isLink) {
         thresholdSlider_R.setValue(thresholdSlider_L.getValue(), juce::dontSendNotification);
         inputGainSlider_R.setValue(inputGainSlider_L.getValue(), juce::dontSendNotification);
@@ -271,31 +291,23 @@ void IronCompressorAudioProcessorEditor::timerCallback()
 
 void IronCompressorAudioProcessorEditor::paint (juce::Graphics& g)
 {
-    // 1. Загружаем текстуру
-    static juce::Image bgTexture = juce::ImageFileFormat::loadFrom(
+    // Загружаем и красим текстуру один раз при отрисовке
+    static juce::Image bgTextureOriginal = juce::ImageFileFormat::loadFrom(
         BinaryData::bg_texture_jpg, 
         BinaryData::bg_texture_jpgSize
     );
+    static juce::Image bgTextureTinted = createTintedImage(bgTextureOriginal, juce::Colour(0xffb30000));
 
-    // 2. Рисуем фон
-    if (bgTexture.isValid())
+    if (bgTextureTinted.isValid())
     {
-        g.drawImage(bgTexture, getLocalBounds().toFloat(), juce::RectanglePlacement::fillDestination);
-        
-        // Красим в красный (сделали чуть ярче, чтобы текстура была видна)
-        g.setColour(juce::Colour(0xffb30000)); 
-        g.setBlendMode(juce::BlendMode::multiply); 
-        g.fillAll();
-        
-        g.setBlendMode(juce::BlendMode::normal); 
+        g.drawImage(bgTextureTinted, getLocalBounds().toFloat(), juce::RectanglePlacement::fillDestination);
     }
     else
     {
-        // ЕСЛИ ВЫ ВИДИТЕ ОРАНЖЕВЫЙ ФОН — ЗНАЧИТ КАРТИНКА НЕ ЗАГРУЗИЛАСЬ!
+        // ЕСЛИ ФОН ОРАНЖЕВЫЙ — КАРТИНКА НЕ ЗАГРУЗИЛАСЬ
         g.fillAll (juce::Colours::orange);
     }
 
-    // 3. Верхняя панель и заголовок
     g.setColour (juce::Colour (0xff1a1a1a));
     g.fillRect (0, 0, getWidth(), 60);
 
@@ -320,7 +332,6 @@ void IronCompressorAudioProcessorEditor::resized()
     const int labelHeight = 16;
     const int colW = 150;
 
-    // Левый канал
     int lx = 20;
     vuMeter_L.setBounds (lx + 10, 70, 280, 80);
     
@@ -346,7 +357,6 @@ void IronCompressorAudioProcessorEditor::resized()
     labelSidechain_L.setBounds (lx + 160, 520, colW, labelHeight);
     sidechainBox_L.setBounds (lx + 160, 540, colW, comboHeight);
 
-    // Правый канал
     int rx = 750;
     vuMeter_R.setBounds (rx + 10, 70, 280, 80);
     
@@ -372,7 +382,6 @@ void IronCompressorAudioProcessorEditor::resized()
     labelSidechain_R.setBounds (rx + 160, 520, colW, labelHeight);
     sidechainBox_R.setBounds (rx + 160, 540, colW, comboHeight);
 
-    // Центральная панель
     int cx = 400;
     tmtEnableToggle.setBounds(cx + 10, 70, 80, 24);
     tmtModeButton.setBounds (cx + 90, 70, 40, 24);
