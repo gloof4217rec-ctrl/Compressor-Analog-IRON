@@ -34,14 +34,13 @@ public:
 
     juce::AudioProcessorValueTreeState apvts;
 
-    // Потокобезопасные индикаторы Gain Reduction (в дБ)
     std::atomic<float> currentGR_dB_L { 0.0f };
     std::atomic<float> currentGR_dB_R { 0.0f };
 
 private:
     juce::AudioProcessorValueTreeState::ParameterLayout createParameterLayout();
     void updateFilters();
-    void updateTimingCoefficients();
+    void updateTimingCoefficients(int attL, int relL, int recL, int attR, int relR, int recR);
 
     double sr = 44100.0;
     std::array<float, 2> envelope { 0.0f, 0.0f };
