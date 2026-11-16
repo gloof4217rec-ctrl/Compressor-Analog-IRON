@@ -178,7 +178,6 @@ IronCompressorAudioProcessorEditor::IronCompressorAudioProcessorEditor (IronComp
     setupSlider(monoSlider, labelMono, "MONO");
     setupSlider(headroomSlider, labelHeadroom, "HEADROOM");
 
-    // ПРИМЕНЯЕМ НОВЫЙ LOOKANDFEEL ДЛЯ КНОПОК
     linkButton.setLookAndFeel(&imageToggleLnf);
     midSideButton.setLookAndFeel(&imageToggleLnf);
     tmtEnableToggle.setLookAndFeel(&imageToggleLnf);
@@ -214,7 +213,6 @@ IronCompressorAudioProcessorEditor::IronCompressorAudioProcessorEditor (IronComp
     attLink = std::make_unique<ButtonAttachment>(audioProcessor.apvts, "link", linkButton);
     attMidSide = std::make_unique<ButtonAttachment>(audioProcessor.apvts, "midSide", midSideButton);
 
-    // ФИКС LINK
     linkButton.onClick = [this]() {
         if (!linkButton.getToggleState()) {
             auto copyParam = [&](const juce::String& idL, const juce::String& idR) {
@@ -334,112 +332,83 @@ void IronCompressorAudioProcessorEditor::paint (juce::Graphics& g)
     g.setFont (14.0f);
     g.drawText ("Parallel Dual-Tube Compressor", 160, 15, 300, 30, juce::Justification::centredLeft);
     
+    // Темные подложки под VU-метры (скорректированы под новые координаты)
     g.setColour(juce::Colour(0x44000000));
-    g.fillRoundedRectangle(210.0f, 70.0f, 300.0f, 120.0f, 5.0f);
-    g.fillRoundedRectangle(590.0f, 70.0f, 300.0f, 120.0f, 5.0f);
+    g.fillRoundedRectangle(90.0f, 70.0f, 270.0f, 140.0f, 5.0f);
+    g.fillRoundedRectangle(740.0f, 70.0f, 270.0f, 140.0f, 5.0f);
 }
 
 void IronCompressorAudioProcessorEditor::resized()
 {
+    // Убираем верхнюю панель
     auto area = getLocalBounds();
     area.removeFromTop (60);
 
-    presetBox.setBounds (getWidth() - 170, 15, 150, 30);
+    // Пресеты в самом верху по центру
+    presetBox.setBounds (400, 15, 150, 30);
 
-    const int smallKnob = 60;
-    const int bigKnob = 90;
-    const int labelHeight = 16;
-
-    // VU и переключатели
-    vuMeter_L.setBounds (210, 70, 300, 90);
-    vuSwitch_L.setBounds (315, 165, 90, 22);
-
-    vuMeter_R.setBounds (590, 70, 300, 90);
-    vuSwitch_R.setBounds (695, 165, 90, 22);
-
-    // TMT
-    int cx = 460; 
-    // Изменен размер под картинку кнопки
-    tmtEnableToggle.setBounds(cx + 10, 130, 80, 30); 
-    tmtModeButton.setBounds (cx + 10, 170, 40, 24);
-    tmtLeftBtn.setBounds (cx + 55, 170, 30, 24);
-    tmtDisplay.setBounds (cx + 90, 170, 60, 24);
-    tmtRightBtn.setBounds (cx + 155, 170, 30, 24);
-    tmtRandomBtn.setBounds (cx + 190, 170, 40, 24);
-
-    // Левый канал
-    int lx = 20;
-    labelInput_L.setBounds (lx, 80, 80, labelHeight);
-    inputGainSlider_L.setBounds (lx, 100, 80, smallKnob + 20);
+    const int knobSize = 80;
+    const int bigKnobSize = 120;
     
-    labelThreshold_L.setBounds (350, 210, 100, labelHeight);
-    thresholdSlider_L.setBounds (330, 230, bigKnob + 40, bigKnob + 40);
+    // Лямбда для удобного размещения (Label над ручкой)
+    auto posKnob = [](juce::Label& l, juce::Slider& s, int x, int y, int w, int h) {
+        l.setBounds(x, y, w, 16);
+        s.setBounds(x, y + 16, w, h);
+    };
 
-    labelAttack_L.setBounds (120, 210, 80, labelHeight);
-    attackSlider_L.setBounds (120, 230, 80, smallKnob + 20);
+    // === 1. VU-МЕТРЫ И ПЕРЕКЛЮЧАТЕЛИ ===
+    vuMeter_L.setBounds (100, 80, 250, 100);
+    vuSwitch_L.setBounds (175, 185, 100, 24);
+
+    vuMeter_R.setBounds (750, 80, 250, 100);
+    vuSwitch_R.setBounds (825, 185, 100, 24);
+
+    // === 2. БЛОК TMT (По центру) ===
+    tmtEnableToggle.setBounds (460, 80, 80, 30);
+    tmtModeButton.setBounds (460, 120, 40, 24);
+    tmtLeftBtn.setBounds (505, 120, 30, 24);
+    tmtDisplay.setBounds (540, 120, 60, 24);
+    tmtRightBtn.setBounds (605, 120, 30, 24);
+    tmtRandomBtn.setBounds (640, 120, 40, 24);
+
+    // === 3. ЛЕВЫЙ КАНАЛ ===
+    posKnob(labelInput_L, inputGainSlider_L, 20, 240, knobSize, knobSize);
+    posKnob(labelAttack_L, attackSlider_L, 120, 240, knobSize, knobSize);
+    posKnob(labelThreshold_L, thresholdSlider_L, 220, 240, bigKnobSize, bigKnobSize);
     
-    labelRelease_L.setBounds (120, 310, 80, labelHeight);
-    releaseSlider_L.setBounds (120, 330, 80, smallKnob + 20);
-
-    labelBias_L.setBounds (lx, 340, 80, labelHeight);
-    biasSlider_L.setBounds (lx, 360, 80, smallKnob + 20);
+    posKnob(labelRelease_L, releaseSlider_L, 20, 350, knobSize, knobSize);
+    posKnob(labelBias_L, biasSlider_L, 120, 350, knobSize, knobSize);
     
-    labelRectifier_L.setBounds (130, 430, 150, labelHeight);
-    rectifierSlider_L.setBounds (130, 450, 80, smallKnob + 20);
-
-    labelOutput_L.setBounds (lx, 460, 80, labelHeight);
-    outputGainSlider_L.setBounds (lx, 480, 80, smallKnob + 20);
-
-    labelSidechain_L.setBounds (250, 420, 100, labelHeight);
-    sidechainSlider_L.setBounds (250, 440, 80, smallKnob + 20);
+    posKnob(labelRectifier_L, rectifierSlider_L, 220, 390, knobSize + 20, knobSize); // Шире для текста
+    posKnob(labelOutput_L, outputGainSlider_L, 220, 490, knobSize, knobSize);
+    posKnob(labelSidechain_L, sidechainSlider_L, 20, 460, knobSize, knobSize);
     
-    airBassSlider_L.setBounds (250, 520, 60, 80); 
+    // Air/Tape L (вертикальный тумблер)
+    labelAirBass_L.setBounds(120, 460, knobSize, 16);
+    airBassSlider_L.setBounds(130, 480, 60, 80);
 
-    // Правый канал
-    int rx = 1000;
-    labelInput_R.setBounds (rx, 80, 80, labelHeight);
-    inputGainSlider_R.setBounds (rx, 100, 80, smallKnob + 20);
+    // === 4. ПРАВЫЙ КАНАЛ ===
+    posKnob(labelInput_R, inputGainSlider_R, 1000, 240, knobSize, knobSize);
+    posKnob(labelAttack_R, attackSlider_R, 900, 240, knobSize, knobSize);
+    posKnob(labelThreshold_R, thresholdSlider_R, 760, 240, bigKnobSize, bigKnobSize);
     
-    labelThreshold_R.setBounds (650, 210, 100, labelHeight);
-    thresholdSlider_R.setBounds (630, 230, bigKnob + 40, bigKnob + 40);
-
-    labelAttack_R.setBounds (880, 210, 80, labelHeight);
-    attackSlider_R.setBounds (880, 230, 80, smallKnob + 20);
+    posKnob(labelRelease_R, releaseSlider_R, 1000, 350, knobSize, knobSize);
+    posKnob(labelBias_R, biasSlider_R, 900, 350, knobSize, knobSize);
     
-    labelRelease_R.setBounds (880, 310, 80, labelHeight);
-    releaseSlider_R.setBounds (880, 330, 80, smallKnob + 20);
-
-    labelBias_R.setBounds (rx, 340, 80, labelHeight);
-    biasSlider_R.setBounds (rx, 360, 80, smallKnob + 20);
+    posKnob(labelRectifier_R, rectifierSlider_R, 780, 390, knobSize + 20, knobSize); // Шире для текста
+    posKnob(labelOutput_R, outputGainSlider_R, 800, 490, knobSize, knobSize);
+    posKnob(labelSidechain_R, sidechainSlider_R, 1000, 460, knobSize, knobSize);
     
-    labelRectifier_R.setBounds (820, 430, 150, labelHeight);
-    rectifierSlider_R.setBounds (820, 450, 80, smallKnob + 20);
+    // Air/Tape R (вертикальный тумблер)
+    labelAirBass_R.setBounds(900, 460, knobSize, 16);
+    airBassSlider_R.setBounds(910, 480, 60, 80);
 
-    labelOutput_R.setBounds (rx, 460, 80, labelHeight);
-    outputGainSlider_R.setBounds (rx, 480, 80, smallKnob + 20);
+    // === 5. МАСТЕР-СЕКЦИЯ (Снизу по центру) ===
+    linkButton.setBounds (380, 580, 120, 30);
+    midSideButton.setBounds (600, 580, 120, 30);
 
-    labelSidechain_R.setBounds (730, 420, 100, labelHeight);
-    sidechainSlider_R.setBounds (730, 440, 80, smallKnob + 20);
-    
-    airBassSlider_R.setBounds (730, 520, 60, 80);
-
-    // Мастер-секция
-    int mx = 350;
-    int mkW = 400 / 4;
-
-    // Изменен размер под картинку кнопки
-    linkButton.setBounds (mx + 30, 580, 100, 30);
-    midSideButton.setBounds (mx + 260, 580, 100, 30);
-
-    labelMix.setBounds (mx, 620, mkW, labelHeight);
-    mixSlider.setBounds (mx, 640, mkW, smallKnob + 20);
-
-    labelWidth.setBounds (mx + mkW, 620, mkW, labelHeight);
-    widthSlider.setBounds (mx + mkW, 640, mkW, smallKnob + 20);
-
-    labelMono.setBounds (mx + mkW*2, 620, mkW, labelHeight);
-    monoSlider.setBounds (mx + mkW*2, 640, mkW, smallKnob + 20);
-
-    labelHeadroom.setBounds (mx + mkW*3, 620, mkW, labelHeight);
-    headroomSlider.setBounds (mx + mkW*3, 640, mkW, smallKnob + 20);
+    posKnob(labelMix, mixSlider, 350, 630, knobSize, knobSize);
+    posKnob(labelWidth, widthSlider, 450, 630, knobSize, knobSize);
+    posKnob(labelMono, monoSlider, 550, 630, knobSize, knobSize);
+    posKnob(labelHeadroom, headroomSlider, 650, 630, knobSize, knobSize);
 }
