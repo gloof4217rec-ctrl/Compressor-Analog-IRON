@@ -32,7 +32,6 @@ target_sources(CompressorAnalogIRON PRIVATE
     Source/PluginEditor.cpp
 )
 
-# 👇 Вшиваем ВСЕ картинки в плагин 👇
 juce_add_binary_data(CompressorAnalogIRON_BinaryData
     SOURCES
         Source/bg_texture.jpg
