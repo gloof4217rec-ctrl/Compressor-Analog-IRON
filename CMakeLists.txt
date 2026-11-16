@@ -32,11 +32,13 @@ target_sources(CompressorAnalogIRON PRIVATE
     Source/PluginEditor.cpp
 )
 
+# 👇 УБЕДИТЕСЬ, ЧТО ВСЕ КАРТИНКИ ЛЕЖАТ В ПАПКЕ SOURCE 👇
 juce_add_binary_data(CompressorAnalogIRON_BinaryData
     SOURCES
         Source/bg_texture.jpg
         Source/toggle_switch.png
         Source/knob_filmstrip.png 
+        Source/gr_meter_filmstrip.png 
 )
 
 target_compile_features(CompressorAnalogIRON PRIVATE cxx_std_17)
