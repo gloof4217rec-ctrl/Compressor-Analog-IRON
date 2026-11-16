@@ -32,12 +32,12 @@ target_sources(CompressorAnalogIRON PRIVATE
     Source/PluginEditor.cpp
 )
 
-# 👇 БЛОК ДЛЯ ВШИВАНИЯ КАРТИНКИ 👇
+# 👇 ДОБАВЛЕН ФАЙЛ toggle_switch.png 👇
 juce_add_binary_data(CompressorAnalogIRON_BinaryData
     SOURCES
         Source/bg_texture.jpg
+        Source/toggle_switch.png 
 )
-# 👆 КОНЕЦ БЛОКА 👆
 
 target_compile_features(CompressorAnalogIRON PRIVATE cxx_std_17)
 
@@ -47,7 +47,7 @@ target_link_libraries(CompressorAnalogIRON PRIVATE
     juce::juce_audio_utils
     juce::juce_audio_processors
     juce::juce_dsp
-    CompressorAnalogIRON_BinaryData # 👈 ДОБАВЛЕНО: Линкуем картинку
+    CompressorAnalogIRON_BinaryData 
 )
 
 juce_generate_juce_header(CompressorAnalogIRON)
