@@ -1,54 +1,41 @@
 #pragma once
-#include <juceHeader.h>
+#include <JuceHeader.h>
 #include "PluginProcessor.h"
 
-// === Кастомный LookAndFeel для ступенчатых ручек ===
-class SteppedSliderLookAndFeel : public juce::LookAndFeel_V4
+// === LookAndFeel для ручек с картинкой (Фильмстрип) ===
+class FilmstripLookAndFeel : public juce::LookAndFeel_V4
 {
 public:
     void drawRotarySlider (juce::Graphics& g, int x, int y, int width, int height, float sliderPos,
                            const float rotaryStartAngle, const float rotaryEndAngle, juce::Slider& slider) override
     {
-        auto radius = (float) juce::jmin (width / 2, height / 2) - 4.0f;
-        auto centreX = (float) x + (float) width  * 0.5f;
-        auto centreY = (float) y + (float) height * 0.5f;
-        auto rx = centreX - radius;
-        auto ry = centreY - radius;
-        auto rw = radius * 2.0f;
-        auto angle = rotaryStartAngle + sliderPos * (rotaryEndAngle - rotaryStartAngle);
+        static juce::Image filmstrip = juce::ImageFileFormat::loadFrom(
+            BinaryData::knob_filmstrip_png, 
+            BinaryData::knob_filmstrip_pngSize
+        );
 
-        g.setColour (juce::Colour (0xff1e1e1e));
-        g.fillEllipse (rx, ry, rw, rw);
-        g.setColour (juce::Colour (0xff444444));
-        g.drawEllipse (rx, ry, rw, rw, 2.0f);
-
-        int numSteps = (int)(slider.getMaximum() - slider.getMinimum()) + 1;
-        if (numSteps > 1)
+        if (filmstrip.isValid())
         {
-            float stepAngle = (rotaryEndAngle - rotaryStartAngle) / (float)(numSteps - 1);
-            for (int i = 0; i < numSteps; ++i)
-            {
-                float tickAngle = rotaryStartAngle + (float)i * stepAngle;
-                float tickRadius = radius * 0.85f;
-                float tickX = centreX + std::cos(tickAngle) * tickRadius;
-                float tickY = centreY + std::sin(tickAngle) * tickRadius;
-                g.setColour (juce::Colours::white.withAlpha(0.5f));
-                g.fillEllipse(tickX - 1.5f, tickY - 1.5f, 3.0f, 3.0f);
-            }
+            int numFrames = 64; 
+            int frameHeight = filmstrip.getHeight() / numFrames;
+            int frameWidth = filmstrip.getWidth();
+            
+            int frameIndex = (int)std::round(sliderPos * (numFrames - 1));
+            
+            g.drawImage(filmstrip, 
+                        x, y, width, height,               
+                        0, frameIndex * frameHeight,       
+                        frameWidth, frameHeight);          
         }
-
-        juce::Path p;
-        auto pointerLength = radius * 0.6f;
-        auto pointerThickness = 3.0f;
-        p.addRectangle (-pointerThickness * 0.5f, -radius, pointerThickness, pointerLength);
-        p.applyTransform (juce::AffineTransform::rotation (angle).translated (centreX, centreY));
-        
-        g.setColour (juce::Colour (0xffe65100));
-        g.fillPath (p);
+        else
+        {
+            g.setColour(juce::Colour(0xff1e1e1e));
+            g.fillEllipse(x, y, width, height);
+        }
     }
 };
 
-// === Кастомный LookAndFeel для трехпозиционного тумблера (Air/Tape) ===
+// === LookAndFeel для 3-позиционного тумблера (Air/Tape) ===
 class ThreeWaySwitchLookAndFeel : public juce::LookAndFeel_V4
 {
 public:
@@ -81,7 +68,7 @@ public:
     }
 };
 
-// === НОВЫЙ LookAndFeel для кнопок с картинкой ===
+// === LookAndFeel для кнопок с картинкой ===
 class CustomImageToggleLookAndFeel : public juce::LookAndFeel_V4
 {
 public:
@@ -98,11 +85,9 @@ public:
             int frameHeight = switchImg.getHeight() / 2;
             int frameY = button.getToggleState() ? 0 : frameHeight;
             
+            auto bounds = button.getLocalBounds();
             g.drawImage(switchImg, 
-                        button.getLocalBounds().toFloat(), 
-                        juce::RectanglePlacement::centred, 
-                        false, 
-                        false, 
+                        bounds.getX(), bounds.getY(), bounds.getWidth(), bounds.getHeight(),
                         0, frameY, switchImg.getWidth(), frameHeight);
         }
         else
@@ -130,6 +115,7 @@ public:
         float radius = getHeight() - 30.0f;
         float minAngle = juce::MathConstants<float>::pi * 1.2f;
         float maxAngle = juce::MathConstants<float>::pi * 1.8f;
+        
         g.setColour(juce::Colours::black);
         g.setFont(10.0f);
         for (int val = 0; val >= -20; val -= 5) {
@@ -142,15 +128,18 @@ public:
             float textY = centerY + std::sin(angle) * (radius - 15.0f);
             g.drawText(juce::String(val), textX - 10.0f, textY - 10.0f, 20.0f, 20.0f, juce::Justification::centred);
         }
+        
         juce::Path needle;
         float currentVal = currentLevel;
         if (currentMode == 2) currentVal = juce::jlimit(-10.0f, 10.0f, currentVal);
         else currentVal = juce::jlimit(-20.0f, 0.0f, currentVal);
         float normalized = juce::jmap(currentVal, -20.0f, 0.0f, 0.0f, 1.0f);
         if (currentMode == 2) normalized = juce::jmap(currentVal, -10.0f, 10.0f, 0.0f, 1.0f);
+        
         float angle = minAngle + normalized * (maxAngle - minAngle);
         needle.startNewSubPath(centerX, centerY);
         needle.lineTo(centerX + std::cos(angle) * radius, centerY + std::sin(angle) * radius);
+        
         g.setColour(juce::Colour(0xffcc0000));
         g.strokePath(needle, juce::PathStrokeType(3.0f));
         g.fillEllipse(centerX - 6.0f, centerY - 6.0f, 12.0f, 12.0f);
@@ -175,7 +164,7 @@ public:
 private:
     IronCompressorAudioProcessor& audioProcessor;
     
-    SteppedSliderLookAndFeel steppedLnf;
+    FilmstripLookAndFeel filmstripLnf;
     ThreeWaySwitchLookAndFeel switchLnf;
     CustomImageToggleLookAndFeel imageToggleLnf;
 
@@ -193,11 +182,11 @@ private:
 
     juce::Slider thresholdSlider_L, inputGainSlider_L, outputGainSlider_L;
     juce::Slider attackSlider_L, releaseSlider_L, biasSlider_L, rectifierSlider_L, sidechainSlider_L, airBassSlider_L;
-    juce::Label labelThreshold_L, labelInput_L, labelOutput_L, labelAttack_L, labelRelease_L, labelBias_L, labelRectifier_L, labelSidechain_L;
+    juce::Label labelThreshold_L, labelInput_L, labelOutput_L, labelAttack_L, labelRelease_L, labelBias_L, labelRectifier_L, labelSidechain_L, labelAirBass_L;
 
     juce::Slider thresholdSlider_R, inputGainSlider_R, outputGainSlider_R;
     juce::Slider attackSlider_R, releaseSlider_R, biasSlider_R, rectifierSlider_R, sidechainSlider_R, airBassSlider_R;
-    juce::Label labelThreshold_R, labelInput_R, labelOutput_R, labelAttack_R, labelRelease_R, labelBias_R, labelRectifier_R, labelSidechain_R;
+    juce::Label labelThreshold_R, labelInput_R, labelOutput_R, labelAttack_R, labelRelease_R, labelBias_R, labelRectifier_R, labelSidechain_R, labelAirBass_R;
 
     juce::Slider mixSlider, widthSlider, monoSlider, headroomSlider;
     juce::Label labelMix, labelWidth, labelMono, labelHeadroom;
