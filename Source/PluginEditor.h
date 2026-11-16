@@ -1,8 +1,8 @@
 #pragma once
-#include <juceHeader.h>
+#include <JuceHeader.h>
 #include "PluginProcessor.h"
 
-// === 1. LookAndFeel для ручек с картинкой и цифрами ===
+// === LookAndFeel для ручек с картинкой и цифрами ===
 class FilmstripLookAndFeel : public juce::LookAndFeel_V4
 {
 public:
@@ -16,43 +16,38 @@ public:
 
         if (filmstrip.isValid())
         {
-            int numFrames = 101; // 101 кадр
+            int numFrames = 101; 
             int frameHeight = filmstrip.getHeight() / numFrames;
             int frameWidth = filmstrip.getWidth();
             int frameIndex = (int)std::round(sliderPos * (numFrames - 1));
 
             bool hasLabels = slider.getProperties().contains("labels");
             
-            int drawX = x, drawY = y, drawW = width, drawH = height;
-            float textRadius = 0.0f;
+            // Делаем ручку строго квадратной, чтобы не было искажений
+            int size = juce::jmin(width, height);
+            int drawX = x + (width - size) / 2;
+            int drawY = y + (height - size) / 2;
             
-            if (hasLabels)
-            {
-                int margin = 10;
-                drawW = juce::jmin(width, height) - margin * 2;
-                drawH = drawW;
-                drawX = x + (width - drawW) / 2;
-                drawY = y + (height - drawH) / 2;
-                textRadius = drawW / 2.0f + 8.0f;
-            }
+            // Если есть подписи, немного уменьшаем ручку, чтобы они влезли
+            int drawW = hasLabels ? size - 16 : size;
+            int drawH = hasLabels ? size - 16 : size;
+            drawX = x + (width - drawW) / 2;
+            drawY = y + (height - drawH) / 2;
 
-            g.drawImage(filmstrip, 
-                        drawX, drawY, drawW, drawH,               
-                        0, frameIndex * frameHeight,       
-                        frameWidth, frameHeight);          
+            float textRadius = drawW / 2.0f + 8.0f;
+
+            g.drawImage(filmstrip, drawX, drawY, drawW, drawH, 0, frameIndex * frameHeight, frameWidth, frameHeight);          
                         
             if (hasLabels)
             {
                 juce::String labelsStr = slider.getProperties()["labels"].toString();
                 juce::StringArray labels;
                 labels.addTokens(labelsStr, ",", "");
-                
                 int numLabels = labels.size();
                 if (numLabels > 1)
                 {
                     g.setColour(juce::Colours::white.withAlpha(0.8f));
                     g.setFont(10.0f);
-                    
                     float centerX = drawX + drawW / 2.0f;
                     float centerY = drawY + drawH / 2.0f;
                     
@@ -61,7 +56,6 @@ public:
                         float angle = rotaryStartAngle + (float)i / (numLabels - 1) * (rotaryEndAngle - rotaryStartAngle);
                         float textX = centerX + std::cos(angle) * textRadius;
                         float textY = centerY + std::sin(angle) * textRadius;
-                        
                         g.drawText(labels[i], textX - 10.0f, textY - 10.0f, 20.0f, 20.0f, juce::Justification::centred);
                     }
                 }
@@ -75,7 +69,7 @@ public:
     }
 };
 
-// === 2. LookAndFeel для тумблера Tube Bias (LOW/MID/HIGH) ===
+// === LookAndFeel для тумблера Tube Bias (LOW/MID/HIGH) ===
 class BiasSwitchLookAndFeel : public juce::LookAndFeel_V4
 {
 public:
@@ -84,31 +78,29 @@ public:
                            const juce::Slider::SliderStyle style, juce::Slider& slider) override
     {
         if (style != juce::Slider::LinearVertical) return;
-
         auto bounds = slider.getLocalBounds().toFloat();
         auto centerX = bounds.getCentreX();
         
         g.setColour(juce::Colour(0xff111111));
-        g.fillRoundedRectangle(centerX - 5.0f, bounds.getY() + 10.0f, 10.0f, bounds.getHeight() - 20.0f, 5.0f);
+        g.fillRoundedRectangle(centerX - 5.0f, bounds.getY() + 15.0f, 10.0f, bounds.getHeight() - 30.0f, 5.0f);
         
         float knobY = sliderPos; 
         juce::Rectangle<float> knobRect(centerX - 14.0f, knobY - 12.0f, 28.0f, 24.0f);
         
         g.setColour(juce::Colours::white);
         g.fillRoundedRectangle(knobRect, 4.0f);
-        
         g.setColour(juce::Colours::black);
         g.drawLine(centerX, knobY, centerX, knobY + 6.0f, 2.0f);
         
         g.setColour(juce::Colours::white);
         g.setFont(10.0f);
-        g.drawText("HIGH", bounds.removeFromTop(15), juce::Justification::centred);
-        g.drawText("MID", bounds.removeFromTop(bounds.getHeight() / 2.0f), juce::Justification::centred);
-        g.drawText("LOW", bounds.removeFromBottom(15), juce::Justification::centred);
+        // Выносим текст по краям
+        g.drawText("HIGH", bounds.removeFromTop(12), juce::Justification::centred);
+        g.drawText("LOW", bounds.removeFromBottom(12), juce::Justification::centred);
     }
 };
 
-// === 3. LookAndFeel для 3-позиционного тумблера (Air/Tape) ===
+// === LookAndFeel для 3-позиционного тумблера (Air/Tape) ===
 class ThreeWaySwitchLookAndFeel : public juce::LookAndFeel_V4
 {
 public:
@@ -117,31 +109,29 @@ public:
                            const juce::Slider::SliderStyle style, juce::Slider& slider) override
     {
         if (style != juce::Slider::LinearVertical) return;
-
         auto bounds = slider.getLocalBounds().toFloat();
         auto centerX = bounds.getCentreX();
         
         g.setColour(juce::Colour(0xff111111));
-        g.fillRoundedRectangle(centerX - 5.0f, bounds.getY() + 10.0f, 10.0f, bounds.getHeight() - 20.0f, 5.0f);
+        g.fillRoundedRectangle(centerX - 5.0f, bounds.getY() + 15.0f, 10.0f, bounds.getHeight() - 30.0f, 5.0f);
         
         float knobY = sliderPos; 
         juce::Rectangle<float> knobRect(centerX - 14.0f, knobY - 12.0f, 28.0f, 24.0f);
         
         g.setColour(juce::Colours::white);
         g.fillRoundedRectangle(knobRect, 4.0f);
-        
         g.setColour(juce::Colours::black);
         g.drawLine(centerX, knobY, centerX, knobY + 6.0f, 2.0f);
         
         g.setColour(juce::Colours::white);
-        g.setFont(10.0f);
-        g.drawText("TAPE", bounds.removeFromTop(15), juce::Justification::centred);
-        g.drawText("BYPASS", bounds.removeFromTop(bounds.getHeight() / 2.0f), juce::Justification::centred);
-        g.drawText("AIR", bounds.removeFromBottom(15), juce::Justification::centred);
+        g.setFont(9.0f);
+        g.drawText("TAPE", bounds.removeFromTop(12), juce::Justification::centred);
+        g.drawText("BYP", bounds.removeFromTop(bounds.getHeight() / 2.0f + 5), juce::Justification::centred);
+        g.drawText("AIR", bounds.removeFromBottom(12), juce::Justification::centred);
     }
 };
 
-// === 4. LookAndFeel для кнопок с картинкой ===
+// === LookAndFeel для кнопок с картинкой ===
 class CustomImageToggleLookAndFeel : public juce::LookAndFeel_V4
 {
 public:
@@ -157,11 +147,8 @@ public:
         {
             int frameHeight = switchImg.getHeight() / 2;
             int frameY = button.getToggleState() ? 0 : frameHeight;
-            
             auto bounds = button.getLocalBounds();
-            g.drawImage(switchImg, 
-                        bounds.getX(), bounds.getY(), bounds.getWidth(), bounds.getHeight(),
-                        0, frameY, switchImg.getWidth(), frameHeight);
+            g.drawImage(switchImg, bounds.getX(), bounds.getY(), bounds.getWidth(), bounds.getHeight(), 0, frameY, switchImg.getWidth(), frameHeight);
         }
         else
         {
@@ -171,117 +158,51 @@ public:
     }
 };
 
-// === 5. Улучшенный Аналоговый VU-метр (Векторный) ===
+// === Обновленный VU-метр (Ваша новая картинка) ===
 class AnalogVUMeter : public juce::Component
 {
 public:
     AnalogVUMeter() {}
-    void setLevel(float newLevel) { targetLevel = juce::jlimit(-20.0f, 10.0f, newLevel); }
-    void setMode(int newMode) { currentMode = newMode; repaint(); }
+    void setLevel(float newLevel) { targetLevel = juce::jlimit(-20.0f, 0.0f, newLevel); }
 
     void paint(juce::Graphics& g) override
     {
-        auto bounds = getLocalBounds().toFloat();
-        
-        // Желтый градиентный фон
-        juce::ColourGradient grad(juce::Colour(0xffffe066), bounds.getCentreX(), bounds.getY(),
-                                  juce::Colour(0xffd1a300), bounds.getCentreX(), bounds.getBottom(), false);
-        g.setGradientFill(grad);
-        g.fillRoundedRectangle(bounds, 10.0f);
-        
-        // Внутренняя тень
-        g.setColour(juce::Colours::black.withAlpha(0.2f));
-        g.drawRoundedRectangle(bounds.reduced(2.0f), 8.0f, 2.0f);
+        // 👇 ЗАГРУЖАЕМ НОВУЮ КАРТИНКУ 👇
+        static juce::Image meterImg = juce::ImageFileFormat::loadFrom(
+            BinaryData::gr_meter_filmstrip_png, 
+            BinaryData::gr_meter_filmstrip_pngSize
+        );
 
-        float centerX = getWidth() / 2.0f;
-        float centerY = getHeight() - 10.0f;
-        float radius = getHeight() - 30.0f;
-        float minAngle = juce::MathConstants<float>::pi * 1.2f;
-        float maxAngle = juce::MathConstants<float>::pi * 1.8f;
-
-        // Красная зона
-        if (currentMode > 0) {
-            juce::Path redZone;
-            float startAngle = minAngle + juce::jmap(0.0f, -20.0f, (currentMode == 1 ? 3.0f : 10.0f), 0.0f, 1.0f) * (maxAngle - minAngle);
-            redZone.addPieSegment(centerX - radius, centerY - radius, radius * 2, radius * 2, startAngle, maxAngle, 0.3f);
-            g.setColour(juce::Colour(0xffcc0000));
-            g.fillPath(redZone);
-        }
-
-        // Риски и цифры
-        g.setColour(juce::Colours::black);
-        g.setFont(11.0f);
-        
-        int numTicks = 20;
-        for (int i = 0; i <= numTicks; ++i) {
-            float angle = minAngle + (float)i / numTicks * (maxAngle - minAngle);
-            float tickRadius = radius * (i % 4 == 0 ? 0.85f : 0.9f);
+        if (meterImg.isValid()) 
+        {
+            int numFrames = 101; // Укажите точное количество кадров для НОВОГО метра
             
-            float tickX1 = centerX + std::cos(angle) * radius;
-            float tickY1 = centerY + std::sin(angle) * radius;
-            float tickX2 = centerX + std::cos(angle) * tickRadius;
-            float tickY2 = centerY + std::sin(angle) * tickRadius;
+            int frameHeight = meterImg.getHeight() / numFrames;
+            int frameWidth = meterImg.getWidth();
             
-            g.drawLine(tickX1, tickY1, tickX2, tickY2, (i % 4 == 0) ? 2.0f : 1.0f);
+            float normalized = juce::jmap(juce::jlimit(-20.0f, 0.0f, currentLevel), -20.0f, 0.0f, 1.0f, 0.0f);
+            int frameIndex = (int)std::round(normalized * (numFrames - 1));
             
-            if (i % 4 == 0) {
-                float textRadius = radius - 18.0f;
-                float textX = centerX + std::cos(angle) * textRadius;
-                float textY = centerY + std::sin(angle) * textRadius;
-                
-                juce::String text;
-                if (currentMode == 0) text = juce::String(-20 + (i / 4) * 4);
-                else if (currentMode == 1) text = juce::String(-20 + (i / 4) * 5);
-                else text = juce::String(-20 + (i / 4) * 6);
-                
-                g.drawText(text, textX - 12.0f, textY - 10.0f, 24.0f, 20.0f, juce::Justification::centred);
-            }
+            auto bounds = getLocalBounds().toFloat();
+            g.drawImage(meterImg, 
+                        bounds.toNearestInt(), 
+                        juce::RectanglePlacement::stretchToFit, 
+                        false, false, 
+                        0, frameIndex * frameHeight, frameWidth, frameHeight);
         }
-
-        // Логотип VU
-        g.setFont(juce::FontOptions(14.0f, juce::Font::bold));
-        g.drawText("VU", centerX - 20.0f, centerY - 35.0f, 40.0f, 20.0f, juce::Justification::centred);
-        
-        // Стрелка
-        juce::Path needle;
-        float normalized = 0.0f;
-        if (currentMode == 0) {
-            normalized = 1.0f - juce::jmap(juce::jlimit(-20.0f, 0.0f, currentLevel), -20.0f, 0.0f, 0.0f, 1.0f);
-        } else if (currentMode == 1) {
-            normalized = juce::jmap(juce::jlimit(-20.0f, 3.0f, currentLevel), -20.0f, 3.0f, 0.0f, 1.0f);
-        } else {
-            normalized = juce::jmap(juce::jlimit(-20.0f, 10.0f, currentLevel), -20.0f, 10.0f, 0.0f, 1.0f);
+        else
+        {
+            g.fillAll(juce::Colours::orange);
         }
-
-        float angle = minAngle + normalized * (maxAngle - minAngle);
-        
-        // Тень стрелки
-        g.setColour(juce::Colours::black.withAlpha(0.3f));
-        g.drawLine(centerX + 2.0f, centerY + 2.0f, 
-                   centerX + std::cos(angle) * radius + 2.0f, 
-                   centerY + std::sin(angle) * radius + 2.0f, 3.0f);
-                   
-        // Стрелка
-        g.setColour(juce::Colour(0xff222222));
-        g.drawLine(centerX, centerY, 
-                   centerX + std::cos(angle) * radius, 
-                   centerY + std::sin(angle) * radius, 2.5f);
-        
-        // Крепление
-        g.setColour(juce::Colours::black);
-        g.fillEllipse(centerX - 8.0f, centerY - 8.0f, 16.0f, 16.0f);
-        g.setColour(juce::Colour(0xff555555));
-        g.fillEllipse(centerX - 4.0f, centerY - 4.0f, 8.0f, 8.0f);
     }
     void resized() override {}
     void tick() { currentLevel += (targetLevel - currentLevel) * 0.2f; repaint(); }
 private:
     float currentLevel = 0.0f;
     float targetLevel = 0.0f;
-    int currentMode = 0;
 };
 
-// === 6. Главный редактор ===
+// === Главный редактор ===
 class IronCompressorAudioProcessorEditor : public juce::AudioProcessorEditor, public juce::Timer
 {
 public:
@@ -301,7 +222,7 @@ private:
 
     AnalogVUMeter vuMeter_L;
     AnalogVUMeter vuMeter_R;
-    juce::ComboBox vuSwitch_L, vuSwitch_R;
+    
     juce::ComboBox presetBox;
 
     juce::ToggleButton tmtEnableToggle { "" }; 
