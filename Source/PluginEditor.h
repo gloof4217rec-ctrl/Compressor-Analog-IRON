@@ -24,17 +24,14 @@ public:
             bool hasLabels = slider.getProperties().contains("labels");
             
             int size = juce::jmin(width, height);
-            int drawW = hasLabels ? size - 16 : size;
-            int drawH = hasLabels ? size - 16 : size;
+            int drawW = hasLabels ? size - 20 : size; // Оставляем место для текста
+            int drawH = hasLabels ? size - 20 : size;
             int drawX = x + (width - drawW) / 2;
             int drawY = y + (height - drawH) / 2;
 
-            float textRadius = drawW / 2.0f + 8.0f;
+            float textRadius = drawW / 2.0f + 10.0f;
 
-            g.drawImage(filmstrip, 
-                        drawX, drawY, drawW, drawH,               
-                        0, frameIndex * frameHeight,       
-                        frameWidth, frameHeight);          
+            g.drawImage(filmstrip, drawX, drawY, drawW, drawH, 0, frameIndex * frameHeight, frameWidth, frameHeight);          
                         
             if (hasLabels)
             {
@@ -44,8 +41,8 @@ public:
                 int numLabels = labels.size();
                 if (numLabels > 1)
                 {
-                    g.setColour(juce::Colours::white.withAlpha(0.8f));
-                    g.setFont(10.0f);
+                    g.setColour(juce::Colours::white.withAlpha(0.9f));
+                    g.setFont(9.0f); // Уменьшили шрифт, чтобы влезали длинные слова
                     float centerX = drawX + drawW / 2.0f;
                     float centerY = drawY + drawH / 2.0f;
                     
@@ -54,7 +51,7 @@ public:
                         float angle = rotaryStartAngle + (float)i / (numLabels - 1) * (rotaryEndAngle - rotaryStartAngle);
                         float textX = centerX + std::cos(angle) * textRadius;
                         float textY = centerY + std::sin(angle) * textRadius;
-                        g.drawText(labels[i], textX - 10.0f, textY - 10.0f, 20.0f, 20.0f, juce::Justification::centred);
+                        g.drawText(labels[i], textX - 15.0f, textY - 10.0f, 30.0f, 20.0f, juce::Justification::centred);
                     }
                 }
             }
@@ -80,7 +77,7 @@ public:
         auto centerX = bounds.getCentreX();
         
         g.setColour(juce::Colour(0xff111111));
-        g.fillRoundedRectangle(centerX - 5.0f, bounds.getY() + 15.0f, 10.0f, bounds.getHeight() - 30.0f, 5.0f);
+        g.fillRoundedRectangle(centerX - 5.0f, bounds.getY() + 20.0f, 10.0f, bounds.getHeight() - 40.0f, 5.0f);
         
         float knobY = sliderPos; 
         juce::Rectangle<float> knobRect(centerX - 14.0f, knobY - 12.0f, 28.0f, 24.0f);
@@ -91,9 +88,10 @@ public:
         g.drawLine(centerX, knobY, centerX, knobY + 6.0f, 2.0f);
         
         g.setColour(juce::Colours::white);
-        g.setFont(10.0f);
-        g.drawText("HIGH", bounds.removeFromTop(12), juce::Justification::centred);
-        g.drawText("LOW", bounds.removeFromBottom(12), juce::Justification::centred);
+        g.setFont(9.0f);
+        // Рисуем текст строго по краям, чтобы не налезал
+        g.drawText("HIGH", bounds.removeFromTop(15), juce::Justification::centred);
+        g.drawText("LOW", bounds.removeFromBottom(15), juce::Justification::centred);
     }
 };
 
@@ -110,7 +108,7 @@ public:
         auto centerX = bounds.getCentreX();
         
         g.setColour(juce::Colour(0xff111111));
-        g.fillRoundedRectangle(centerX - 5.0f, bounds.getY() + 15.0f, 10.0f, bounds.getHeight() - 30.0f, 5.0f);
+        g.fillRoundedRectangle(centerX - 5.0f, bounds.getY() + 20.0f, 10.0f, bounds.getHeight() - 40.0f, 5.0f);
         
         float knobY = sliderPos; 
         juce::Rectangle<float> knobRect(centerX - 14.0f, knobY - 12.0f, 28.0f, 24.0f);
@@ -121,10 +119,10 @@ public:
         g.drawLine(centerX, knobY, centerX, knobY + 6.0f, 2.0f);
         
         g.setColour(juce::Colours::white);
-        g.setFont(9.0f);
-        g.drawText("TAPE", bounds.removeFromTop(12), juce::Justification::centred);
-        g.drawText("BYP", bounds.removeFromTop(bounds.getHeight() / 2.0f + 5), juce::Justification::centred);
-        g.drawText("AIR", bounds.removeFromBottom(12), juce::Justification::centred);
+        g.setFont(8.5f);
+        g.drawText("TAPE", bounds.removeFromTop(15), juce::Justification::centred);
+        g.drawText("BYPASS", bounds.removeFromTop(bounds.getHeight() / 2.0f + 5), juce::Justification::centred);
+        g.drawText("AIR", bounds.removeFromBottom(15), juce::Justification::centred);
     }
 };
 
@@ -158,7 +156,7 @@ public:
     }
 };
 
-// === VU-метр (Исправлено растягивание) ===
+// === VU-метр ===
 class AnalogVUMeter : public juce::Component
 {
 public:
@@ -183,15 +181,13 @@ public:
             
             auto bounds = getLocalBounds().toFloat();
             
-            // 👇 ИСПРАВЛЕНИЕ ПРОПОРЦИЙ КАРТИНКИ 👇
+            // Сохраняем пропорции
             float targetW = bounds.getWidth();
             float targetH = bounds.getHeight();
             float aspect = (float)frameWidth / (float)frameHeight;
             
             float drawW = targetW;
             float drawH = targetW / aspect;
-            
-            // Если картинка слишком высокая для окна, подгоняем по высоте
             if (drawH > targetH) {
                 drawH = targetH;
                 drawW = targetH * aspect;
