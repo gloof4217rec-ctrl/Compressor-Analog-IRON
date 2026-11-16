@@ -1,3 +1,4 @@
+# Trigger build
 name: CI/CD Build VST3 and AU
 on:
   push:
