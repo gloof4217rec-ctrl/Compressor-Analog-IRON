@@ -150,7 +150,6 @@ IronCompressorAudioProcessorEditor::IronCompressorAudioProcessorEditor (IronComp
     setupSteppedSlider(rectifierSlider_L, labelRectifier_L, "RECTIFIER L", 6);
     setupSteppedSlider(sidechainSlider_L, labelSidechain_L, "SC EQ L", 5);
 
-    // НАСТРОЙКА ТРЕХПОЗИЦИОННОГО ТУМБЛЕРА L
     airBassSlider_L.setSliderStyle(juce::Slider::LinearVertical);
     airBassSlider_L.setTextBoxStyle(juce::Slider::NoTextBox, false, 0, 0);
     airBassSlider_L.setRange(0.0, 2.0, 1.0);
@@ -167,7 +166,6 @@ IronCompressorAudioProcessorEditor::IronCompressorAudioProcessorEditor (IronComp
     setupSteppedSlider(rectifierSlider_R, labelRectifier_R, "RECTIFIER R", 6);
     setupSteppedSlider(sidechainSlider_R, labelSidechain_R, "SC EQ R", 5);
 
-    // НАСТРОЙКА ТРЕХПОЗИЦИОННОГО ТУМБЛЕРА R
     airBassSlider_R.setSliderStyle(juce::Slider::LinearVertical);
     airBassSlider_R.setTextBoxStyle(juce::Slider::NoTextBox, false, 0, 0);
     airBassSlider_R.setRange(0.0, 2.0, 1.0);
@@ -180,9 +178,10 @@ IronCompressorAudioProcessorEditor::IronCompressorAudioProcessorEditor (IronComp
     setupSlider(monoSlider, labelMono, "MONO");
     setupSlider(headroomSlider, labelHeadroom, "HEADROOM");
 
-    linkButton.setLookAndFeel(&switchLnf);
-    midSideButton.setLookAndFeel(&switchLnf);
-    tmtEnableToggle.setLookAndFeel(&switchLnf);
+    // ПРИМЕНЯЕМ НОВЫЙ LOOKANDFEEL ДЛЯ КНОПОК
+    linkButton.setLookAndFeel(&imageToggleLnf);
+    midSideButton.setLookAndFeel(&imageToggleLnf);
+    tmtEnableToggle.setLookAndFeel(&imageToggleLnf);
 
     addAndMakeVisible(linkButton);
     addAndMakeVisible(midSideButton);
@@ -215,6 +214,7 @@ IronCompressorAudioProcessorEditor::IronCompressorAudioProcessorEditor (IronComp
     attLink = std::make_unique<ButtonAttachment>(audioProcessor.apvts, "link", linkButton);
     attMidSide = std::make_unique<ButtonAttachment>(audioProcessor.apvts, "midSide", midSideButton);
 
+    // ФИКС LINK
     linkButton.onClick = [this]() {
         if (!linkButton.getToggleState()) {
             auto copyParam = [&](const juce::String& idL, const juce::String& idR) {
@@ -252,10 +252,13 @@ void IronCompressorAudioProcessorEditor::timerCallback()
 {
     int modeL = vuSwitch_L.getSelectedId() - 1;
     int modeR = vuSwitch_R.getSelectedId() - 1;
+
     if (modeL == 0) vuMeter_L.setLevel(audioProcessor.currentGR_dB_L.load());
     else vuMeter_L.setLevel(audioProcessor.currentOut_dB_L.load());
+
     if (modeR == 0) vuMeter_R.setLevel(audioProcessor.currentGR_dB_R.load());
     else vuMeter_R.setLevel(audioProcessor.currentOut_dB_R.load());
+
     vuMeter_L.tick();
     vuMeter_R.tick();
 
@@ -294,7 +297,9 @@ void IronCompressorAudioProcessorEditor::timerCallback()
         auto* param = audioProcessor.apvts.getParameter("tmtChannel");
         int current = static_cast<int>(param->getValue() * 9);
         bool isDigital = audioProcessor.apvts.getRawParameterValue("tmtStereoMode")->load() > 0.5f;
+        
         tmtModeButton.setButtonText(isDigital ? "A" : "D");
+        
         if (isDigital) {
             tmtDisplay.setText(juce::String(current * 2 + 1) + "-" + juce::String(current * 2 + 1), juce::dontSendNotification);
         } else {
@@ -307,7 +312,10 @@ void IronCompressorAudioProcessorEditor::timerCallback()
 
 void IronCompressorAudioProcessorEditor::paint (juce::Graphics& g)
 {
-    static juce::Image bgTextureOriginal = juce::ImageFileFormat::loadFrom(BinaryData::bg_texture_jpg, BinaryData::bg_texture_jpgSize);
+    static juce::Image bgTextureOriginal = juce::ImageFileFormat::loadFrom(
+        BinaryData::bg_texture_jpg, 
+        BinaryData::bg_texture_jpgSize
+    );
     static juce::Image bgTextureTinted = createTintedImage(bgTextureOriginal, juce::Colour(0xffb30000));
 
     if (bgTextureTinted.isValid())
@@ -345,73 +353,93 @@ void IronCompressorAudioProcessorEditor::resized()
     // VU и переключатели
     vuMeter_L.setBounds (210, 70, 300, 90);
     vuSwitch_L.setBounds (315, 165, 90, 22);
+
     vuMeter_R.setBounds (590, 70, 300, 90);
     vuSwitch_R.setBounds (695, 165, 90, 22);
 
     // TMT
     int cx = 460; 
-    tmtEnableToggle.setBounds(cx + 10, 130, 80, 24);
-    tmtModeButton.setBounds (cx + 10, 160, 40, 24);
-    tmtLeftBtn.setBounds (cx + 55, 160, 30, 24);
-    tmtDisplay.setBounds (cx + 90, 160, 60, 24);
-    tmtRightBtn.setBounds (cx + 155, 160, 30, 24);
-    tmtRandomBtn.setBounds (cx + 190, 160, 40, 24);
+    // Изменен размер под картинку кнопки
+    tmtEnableToggle.setBounds(cx + 10, 130, 80, 30); 
+    tmtModeButton.setBounds (cx + 10, 170, 40, 24);
+    tmtLeftBtn.setBounds (cx + 55, 170, 30, 24);
+    tmtDisplay.setBounds (cx + 90, 170, 60, 24);
+    tmtRightBtn.setBounds (cx + 155, 170, 30, 24);
+    tmtRandomBtn.setBounds (cx + 190, 170, 40, 24);
 
     // Левый канал
     int lx = 20;
     labelInput_L.setBounds (lx, 80, 80, labelHeight);
     inputGainSlider_L.setBounds (lx, 100, 80, smallKnob + 20);
+    
     labelThreshold_L.setBounds (350, 210, 100, labelHeight);
     thresholdSlider_L.setBounds (330, 230, bigKnob + 40, bigKnob + 40);
+
     labelAttack_L.setBounds (120, 210, 80, labelHeight);
     attackSlider_L.setBounds (120, 230, 80, smallKnob + 20);
+    
     labelRelease_L.setBounds (120, 310, 80, labelHeight);
     releaseSlider_L.setBounds (120, 330, 80, smallKnob + 20);
+
     labelBias_L.setBounds (lx, 340, 80, labelHeight);
     biasSlider_L.setBounds (lx, 360, 80, smallKnob + 20);
+    
     labelRectifier_L.setBounds (130, 430, 150, labelHeight);
     rectifierSlider_L.setBounds (130, 450, 80, smallKnob + 20);
+
     labelOutput_L.setBounds (lx, 460, 80, labelHeight);
     outputGainSlider_L.setBounds (lx, 480, 80, smallKnob + 20);
+
     labelSidechain_L.setBounds (250, 420, 100, labelHeight);
     sidechainSlider_L.setBounds (250, 440, 80, smallKnob + 20);
     
-    // ТУМБЛЕР L
     airBassSlider_L.setBounds (250, 520, 60, 80); 
 
     // Правый канал
     int rx = 1000;
     labelInput_R.setBounds (rx, 80, 80, labelHeight);
     inputGainSlider_R.setBounds (rx, 100, 80, smallKnob + 20);
+    
     labelThreshold_R.setBounds (650, 210, 100, labelHeight);
     thresholdSlider_R.setBounds (630, 230, bigKnob + 40, bigKnob + 40);
+
     labelAttack_R.setBounds (880, 210, 80, labelHeight);
     attackSlider_R.setBounds (880, 230, 80, smallKnob + 20);
+    
     labelRelease_R.setBounds (880, 310, 80, labelHeight);
     releaseSlider_R.setBounds (880, 330, 80, smallKnob + 20);
+
     labelBias_R.setBounds (rx, 340, 80, labelHeight);
     biasSlider_R.setBounds (rx, 360, 80, smallKnob + 20);
+    
     labelRectifier_R.setBounds (820, 430, 150, labelHeight);
     rectifierSlider_R.setBounds (820, 450, 80, smallKnob + 20);
+
     labelOutput_R.setBounds (rx, 460, 80, labelHeight);
     outputGainSlider_R.setBounds (rx, 480, 80, smallKnob + 20);
+
     labelSidechain_R.setBounds (730, 420, 100, labelHeight);
     sidechainSlider_R.setBounds (730, 440, 80, smallKnob + 20);
     
-    // ТУМБЛЕР R
     airBassSlider_R.setBounds (730, 520, 60, 80);
 
     // Мастер-секция
     int mx = 350;
     int mkW = 400 / 4;
-    linkButton.setBounds (mx + 50, 580, 130, 24);
-    midSideButton.setBounds (mx + 220, 580, 130, 24);
+
+    // Изменен размер под картинку кнопки
+    linkButton.setBounds (mx + 30, 580, 100, 30);
+    midSideButton.setBounds (mx + 260, 580, 100, 30);
+
     labelMix.setBounds (mx, 620, mkW, labelHeight);
     mixSlider.setBounds (mx, 640, mkW, smallKnob + 20);
+
     labelWidth.setBounds (mx + mkW, 620, mkW, labelHeight);
     widthSlider.setBounds (mx + mkW, 640, mkW, smallKnob + 20);
+
     labelMono.setBounds (mx + mkW*2, 620, mkW, labelHeight);
     monoSlider.setBounds (mx + mkW*2, 640, mkW, smallKnob + 20);
+
     labelHeadroom.setBounds (mx + mkW*3, 620, mkW, labelHeight);
     headroomSlider.setBounds (mx + mkW*3, 640, mkW, smallKnob + 20);
 }
