@@ -16,14 +16,13 @@ public:
 
         if (filmstrip.isValid())
         {
-            int numFrames = 101; // 101 кадр для ручек
+            int numFrames = 101; 
             int frameHeight = filmstrip.getHeight() / numFrames;
             int frameWidth = filmstrip.getWidth();
             int frameIndex = (int)std::round(sliderPos * (numFrames - 1));
 
             bool hasLabels = slider.getProperties().contains("labels");
             
-            // Делаем ручку строго квадратной
             int size = juce::jmin(width, height);
             int drawW = hasLabels ? size - 16 : size;
             int drawH = hasLabels ? size - 16 : size;
@@ -159,7 +158,7 @@ public:
     }
 };
 
-// === Аналоговый VU-метр (Использует вашу картинку) ===
+// === VU-метр (Исправлено растягивание) ===
 class AnalogVUMeter : public juce::Component
 {
 public:
@@ -175,18 +174,34 @@ public:
 
         if (meterImg.isValid()) 
         {
-            int numFrames = 101; // Количество кадров для метра (измените, если у вас другое число)
+            int numFrames = 101; 
             int frameHeight = meterImg.getHeight() / numFrames;
             int frameWidth = meterImg.getWidth();
             
             float normalized = juce::jmap(juce::jlimit(-20.0f, 0.0f, currentLevel), -20.0f, 0.0f, 1.0f, 0.0f);
             int frameIndex = (int)std::round(normalized * (numFrames - 1));
             
-            auto bounds = getLocalBounds();
+            auto bounds = getLocalBounds().toFloat();
             
-            // ИСПРАВЛЕННЫЙ ВЫЗОВ DRAWIMAGE
+            // 👇 ИСПРАВЛЕНИЕ ПРОПОРЦИЙ КАРТИНКИ 👇
+            float targetW = bounds.getWidth();
+            float targetH = bounds.getHeight();
+            float aspect = (float)frameWidth / (float)frameHeight;
+            
+            float drawW = targetW;
+            float drawH = targetW / aspect;
+            
+            // Если картинка слишком высокая для окна, подгоняем по высоте
+            if (drawH > targetH) {
+                drawH = targetH;
+                drawW = targetH * aspect;
+            }
+            
+            float drawX = bounds.getX() + (targetW - drawW) * 0.5f;
+            float drawY = bounds.getY() + (targetH - drawH) * 0.5f;
+            
             g.drawImage(meterImg, 
-                        bounds.getX(), bounds.getY(), bounds.getWidth(), bounds.getHeight(),
+                        (int)drawX, (int)drawY, (int)drawW, (int)drawH,
                         0, frameIndex * frameHeight, frameWidth, frameHeight);
         }
         else
