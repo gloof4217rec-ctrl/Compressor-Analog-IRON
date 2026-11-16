@@ -239,19 +239,26 @@ void IronCompressorAudioProcessor::processBlock (juce::AudioBuffer<float>& buffe
         const float curHeadroom = headroomSmoothed.getNextValue();
         const float curMix = mixSmoothed.getNextValue();
         
-        float inL = oversampledBlock.getSample(0, n) * inputGainSmoothed[0].getNextValue();
-        float inR = oversampledBlock.getSample(1, n) * inputGainSmoothed[1].getNextValue();
+        float rawL = oversampledBlock.getSample(0, n);
+        float rawR = oversampledBlock.getSample(1, n);
 
-        float leftSignal = inL;
-        float rightSignal = inR;
+        // 1. Кодируем в Mid/Side (если включено)
+        float mid = (rawL + rawR) * 0.5f;
+        float side = (rawL - rawR) * 0.5f;
 
+        float procL, procR;
+
+        // 2. Применяем Input Gain к Mid/Side или L/R
         if (isMidSide) {
-            leftSignal = (inL + inR) * 0.5f;
-            rightSignal = (inL - inR) * 0.5f;
+            procL = mid * inputGainSmoothed[0].getNextValue();
+            procR = side * inputGainSmoothed[1].getNextValue();
+        } else {
+            procL = rawL * inputGainSmoothed[0].getNextValue();
+            procR = rawR * inputGainSmoothed[1].getNextValue();
         }
 
-        float detectL = leftSignal * dbToGain(-curHeadroom);
-        float detectR = rightSignal * dbToGain(-curHeadroom);
+        float detectL = procL * dbToGain(-curHeadroom);
+        float detectR = procR * dbToGain(-curHeadroom);
 
         float scL = sidechainFilter[0].processSample(detectL);
         float scR = sidechainFilter[1].processSample(detectR);
@@ -295,39 +302,42 @@ void IronCompressorAudioProcessor::processBlock (juce::AudioBuffer<float>& buffe
         if (finalCvL > 0.001f) maxGR_dB_L = juce::jmin(maxGR_dB_L, juce::Decibels::gainToDecibels(1.0f - finalCvL, -100.0f));
         if (finalCvR > 0.001f) maxGR_dB_R = juce::jmin(maxGR_dB_R, juce::Decibels::gainToDecibels(1.0f - finalCvR, -100.0f));
 
-        float wetL = std::tanh(leftSignal * (1.0f - 0.6f * finalCvL));
-        float wetR = std::tanh(rightSignal * (1.0f - 0.6f * finalCvR));
+        float wetL = std::tanh(procL * (1.0f - 0.6f * finalCvL));
+        float wetR = std::tanh(procR * (1.0f - 0.6f * finalCvR));
 
         if (getChoice("airBassL") > 0) wetL = airBassFilter[0].processSample(wetL);
         if (getChoice("airBassR") > 0) wetR = airBassFilter[1].processSample(wetR);
 
-        float outL = (leftSignal * (1.0f - curMix)) + (wetL * curMix);
-        float outR = (rightSignal * (1.0f - curMix)) + (wetR * curMix);
+        // 3. Параллельный микс
+        float outL = (procL * (1.0f - curMix)) + (wetL * curMix);
+        float outR = (procR * (1.0f - curMix)) + (wetR * curMix);
 
+        // 4. Декодируем обратно в L/R и применяем Output Gain
         if (isMidSide) {
-            float tempL = outL + outR;
-            float tempR = outL - outR;
-            outL = tempL;
-            outR = tempR;
+            float outMid = outL * outputGainSmoothed[0].getNextValue();
+            float outSide = outR * outputGainSmoothed[1].getNextValue();
+            outL = outMid + outSide;
+            outR = outMid - outSide;
+        } else {
+            outL *= outputGainSmoothed[0].getNextValue();
+            outR *= outputGainSmoothed[1].getNextValue();
         }
 
-        float mid = (outL + outR) * 0.5f;
-        float side = (outL - outR) * 0.5f;
+        // 5. Стерео-обработка (Width & Mono)
+        float finalMid = (outL + outR) * 0.5f;
+        float finalSide = (outL - outR) * 0.5f;
 
-        if (monoFreq > 20.0f) side = monoMakerFilter[0].processSample(side);
-        side *= width;
+        if (monoFreq > 20.0f) finalSide = monoMakerFilter[0].processSample(finalSide);
+        finalSide *= width;
 
-        outL = mid + side;
-        outR = mid - side;
+        outL = finalMid + finalSide;
+        outR = finalMid - finalSide;
 
-        float finalL = outL * outputGainSmoothed[0].getNextValue();
-        float finalR = outR * outputGainSmoothed[1].getNextValue();
-        
-        maxOutL = juce::jmax(maxOutL, std::abs(finalL));
-        maxOutR = juce::jmax(maxOutR, std::abs(finalR));
+        maxOutL = juce::jmax(maxOutL, std::abs(outL));
+        maxOutR = juce::jmax(maxOutR, std::abs(outR));
 
-        oversampledBlock.setSample(0, n, finalL);
-        oversampledBlock.setSample(1, n, finalR);
+        oversampledBlock.setSample(0, n, outL);
+        oversampledBlock.setSample(1, n, outR);
     }
 
     oversampler->processSamplesDown(block);
