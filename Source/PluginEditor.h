@@ -16,27 +16,26 @@ public:
 
         if (filmstrip.isValid())
         {
-            int numFrames = 101; 
+            int numFrames = 101; // 101 кадр для ручек
             int frameHeight = filmstrip.getHeight() / numFrames;
             int frameWidth = filmstrip.getWidth();
             int frameIndex = (int)std::round(sliderPos * (numFrames - 1));
 
             bool hasLabels = slider.getProperties().contains("labels");
             
-            // Делаем ручку строго квадратной, чтобы не было искажений
+            // Делаем ручку строго квадратной
             int size = juce::jmin(width, height);
-            int drawX = x + (width - size) / 2;
-            int drawY = y + (height - size) / 2;
-            
-            // Если есть подписи, немного уменьшаем ручку, чтобы они влезли
             int drawW = hasLabels ? size - 16 : size;
             int drawH = hasLabels ? size - 16 : size;
-            drawX = x + (width - drawW) / 2;
-            drawY = y + (height - drawH) / 2;
+            int drawX = x + (width - drawW) / 2;
+            int drawY = y + (height - drawH) / 2;
 
             float textRadius = drawW / 2.0f + 8.0f;
 
-            g.drawImage(filmstrip, drawX, drawY, drawW, drawH, 0, frameIndex * frameHeight, frameWidth, frameHeight);          
+            g.drawImage(filmstrip, 
+                        drawX, drawY, drawW, drawH,               
+                        0, frameIndex * frameHeight,       
+                        frameWidth, frameHeight);          
                         
             if (hasLabels)
             {
@@ -94,7 +93,6 @@ public:
         
         g.setColour(juce::Colours::white);
         g.setFont(10.0f);
-        // Выносим текст по краям
         g.drawText("HIGH", bounds.removeFromTop(12), juce::Justification::centred);
         g.drawText("LOW", bounds.removeFromBottom(12), juce::Justification::centred);
     }
@@ -148,7 +146,10 @@ public:
             int frameHeight = switchImg.getHeight() / 2;
             int frameY = button.getToggleState() ? 0 : frameHeight;
             auto bounds = button.getLocalBounds();
-            g.drawImage(switchImg, bounds.getX(), bounds.getY(), bounds.getWidth(), bounds.getHeight(), 0, frameY, switchImg.getWidth(), frameHeight);
+            
+            g.drawImage(switchImg, 
+                        bounds.getX(), bounds.getY(), bounds.getWidth(), bounds.getHeight(),
+                        0, frameY, switchImg.getWidth(), frameHeight);
         }
         else
         {
@@ -158,7 +159,7 @@ public:
     }
 };
 
-// === Обновленный VU-метр (Ваша новая картинка) ===
+// === Аналоговый VU-метр (Использует вашу картинку) ===
 class AnalogVUMeter : public juce::Component
 {
 public:
@@ -167,7 +168,6 @@ public:
 
     void paint(juce::Graphics& g) override
     {
-        // 👇 ЗАГРУЖАЕМ НОВУЮ КАРТИНКУ 👇
         static juce::Image meterImg = juce::ImageFileFormat::loadFrom(
             BinaryData::gr_meter_filmstrip_png, 
             BinaryData::gr_meter_filmstrip_pngSize
@@ -175,19 +175,18 @@ public:
 
         if (meterImg.isValid()) 
         {
-            int numFrames = 101; // Укажите точное количество кадров для НОВОГО метра
-            
+            int numFrames = 101; // Количество кадров для метра (измените, если у вас другое число)
             int frameHeight = meterImg.getHeight() / numFrames;
             int frameWidth = meterImg.getWidth();
             
             float normalized = juce::jmap(juce::jlimit(-20.0f, 0.0f, currentLevel), -20.0f, 0.0f, 1.0f, 0.0f);
             int frameIndex = (int)std::round(normalized * (numFrames - 1));
             
-            auto bounds = getLocalBounds().toFloat();
+            auto bounds = getLocalBounds();
+            
+            // ИСПРАВЛЕННЫЙ ВЫЗОВ DRAWIMAGE
             g.drawImage(meterImg, 
-                        bounds.toNearestInt(), 
-                        juce::RectanglePlacement::stretchToFit, 
-                        false, false, 
+                        bounds.getX(), bounds.getY(), bounds.getWidth(), bounds.getHeight(),
                         0, frameIndex * frameHeight, frameWidth, frameHeight);
         }
         else
