@@ -32,15 +32,15 @@ target_sources(CompressorAnalogIRON PRIVATE
     Source/PluginEditor.cpp
 )
 
-# 👇 ДОБАВЛЕН ФАЙЛ toggle_switch.png 👇
+# 👇 Вшиваем ВСЕ картинки в плагин 👇
 juce_add_binary_data(CompressorAnalogIRON_BinaryData
     SOURCES
         Source/bg_texture.jpg
-        Source/toggle_switch.png 
+        Source/toggle_switch.png
+        Source/knob_filmstrip.png 
 )
 
 target_compile_features(CompressorAnalogIRON PRIVATE cxx_std_17)
-
 target_compile_definitions(CompressorAnalogIRON PRIVATE JUCE_IGNORE_VST3_MISMATCHED_PARAMETER_ID_WARNING=1)
 
 target_link_libraries(CompressorAnalogIRON PRIVATE
