@@ -230,8 +230,6 @@ void IronCompressorAudioProcessor::processBlock (juce::AudioBuffer<float>& buffe
 
     float maxGR_dB_L = 0.0f;
     float maxGR_dB_R = 0.0f;
-    
-    // Переменные для выходного уровня
     float maxOutL = 0.0f;
     float maxOutR = 0.0f;
 
@@ -322,7 +320,6 @@ void IronCompressorAudioProcessor::processBlock (juce::AudioBuffer<float>& buffe
         outL = mid + side;
         outR = mid - side;
 
-        // Применяем Output Gain и находим пиковый уровень
         float finalL = outL * outputGainSmoothed[0].getNextValue();
         float finalR = outR * outputGainSmoothed[1].getNextValue();
         
@@ -337,8 +334,6 @@ void IronCompressorAudioProcessor::processBlock (juce::AudioBuffer<float>& buffe
 
     currentGR_dB_L.store(maxGR_dB_L);
     currentGR_dB_R.store(maxGR_dB_R);
-    
-    // Сохраняем выходной уровень в дБ
     currentOut_dB_L.store(juce::Decibels::gainToDecibels(maxOutL, -100.0f));
     currentOut_dB_R.store(juce::Decibels::gainToDecibels(maxOutR, -100.0f));
 }
