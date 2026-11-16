@@ -114,6 +114,8 @@ IronCompressorAudioProcessorEditor::IronCompressorAudioProcessorEditor (IronComp
         l.setText(name, juce::dontSendNotification);
         l.setJustificationType(juce::Justification::centred);
         l.setFont(juce::FontOptions(14.0f, juce::Font::bold)); // Увеличен шрифт
+        l.setColour(juce::Label::textColourId, juce::Colours::white);
+        l.setLookAndFeel(&shadowLnf);
         addAndMakeVisible(l);
     };
     setupLabel(labelTmtOn, "TMT");
@@ -127,7 +129,9 @@ IronCompressorAudioProcessorEditor::IronCompressorAudioProcessorEditor (IronComp
         addAndMakeVisible (s);
         l.setText (name, juce::dontSendNotification);
         l.setJustificationType (juce::Justification::centred);
-        l.setFont(juce::FontOptions(13.0f)); // Увеличен шрифт
+        l.setFont(juce::FontOptions(14.0f, juce::Font::bold));
+        l.setColour(juce::Label::textColourId, juce::Colours::white);
+        l.setLookAndFeel(&shadowLnf);
         l.setMinimumHorizontalScale(0.5f);
         addAndMakeVisible (l);
     };
@@ -140,7 +144,9 @@ IronCompressorAudioProcessorEditor::IronCompressorAudioProcessorEditor (IronComp
         addAndMakeVisible (s);
         l.setText (name, juce::dontSendNotification);
         l.setJustificationType (juce::Justification::centred);
-        l.setFont(juce::FontOptions(13.0f));
+        l.setFont(juce::FontOptions(14.0f, juce::Font::bold));
+        l.setColour(juce::Label::textColourId, juce::Colours::white);
+        l.setLookAndFeel(&shadowLnf);
         l.setMinimumHorizontalScale(0.5f);
         addAndMakeVisible (l);
         
@@ -170,7 +176,9 @@ IronCompressorAudioProcessorEditor::IronCompressorAudioProcessorEditor (IronComp
     addAndMakeVisible(biasSlider_L);
     labelBias_L.setText("BIAS L", juce::dontSendNotification);
     labelBias_L.setJustificationType(juce::Justification::centred);
-    labelBias_L.setFont(juce::FontOptions(13.0f));
+    labelBias_L.setFont(juce::FontOptions(14.0f, juce::Font::bold));
+    labelBias_L.setColour(juce::Label::textColourId, juce::Colours::white);
+    labelBias_L.setLookAndFeel(&shadowLnf);
     addAndMakeVisible(labelBias_L);
 
     airBassSlider_L.setSliderStyle(juce::Slider::LinearVertical);
@@ -180,7 +188,9 @@ IronCompressorAudioProcessorEditor::IronCompressorAudioProcessorEditor (IronComp
     addAndMakeVisible(airBassSlider_L);
     labelAirBass_L.setText("AIR/TAPE L", juce::dontSendNotification);
     labelAirBass_L.setJustificationType(juce::Justification::centred);
-    labelAirBass_L.setFont(juce::FontOptions(13.0f));
+    labelAirBass_L.setFont(juce::FontOptions(14.0f, juce::Font::bold));
+    labelAirBass_L.setColour(juce::Label::textColourId, juce::Colours::white);
+    labelAirBass_L.setLookAndFeel(&shadowLnf);
     addAndMakeVisible(labelAirBass_L);
 
     // Правый канал
@@ -199,7 +209,9 @@ IronCompressorAudioProcessorEditor::IronCompressorAudioProcessorEditor (IronComp
     addAndMakeVisible(biasSlider_R);
     labelBias_R.setText("BIAS R", juce::dontSendNotification);
     labelBias_R.setJustificationType(juce::Justification::centred);
-    labelBias_R.setFont(juce::FontOptions(13.0f));
+    labelBias_R.setFont(juce::FontOptions(14.0f, juce::Font::bold));
+    labelBias_R.setColour(juce::Label::textColourId, juce::Colours::white);
+    labelBias_R.setLookAndFeel(&shadowLnf);
     addAndMakeVisible(labelBias_R);
 
     airBassSlider_R.setSliderStyle(juce::Slider::LinearVertical);
@@ -209,7 +221,9 @@ IronCompressorAudioProcessorEditor::IronCompressorAudioProcessorEditor (IronComp
     addAndMakeVisible(airBassSlider_R);
     labelAirBass_R.setText("AIR/TAPE R", juce::dontSendNotification);
     labelAirBass_R.setJustificationType(juce::Justification::centred);
-    labelAirBass_R.setFont(juce::FontOptions(13.0f));
+    labelAirBass_R.setFont(juce::FontOptions(14.0f, juce::Font::bold));
+    labelAirBass_R.setColour(juce::Label::textColourId, juce::Colours::white);
+    labelAirBass_R.setLookAndFeel(&shadowLnf);
     addAndMakeVisible(labelAirBass_R);
 
     // Мастер
@@ -278,7 +292,7 @@ IronCompressorAudioProcessorEditor::IronCompressorAudioProcessorEditor (IronComp
         }
     };
 
-    setSize (1200, 950); // Увеличили окно, чтобы влезли нижние ручки
+    setSize (1350, 750);
 }
 
 IronCompressorAudioProcessorEditor::~IronCompressorAudioProcessorEditor() 
@@ -401,8 +415,7 @@ void IronCompressorAudioProcessorEditor::paint (juce::Graphics& g)
     g.drawText ("Parallel Dual-Tube Compressor", 160, 15, 300, 30, juce::Justification::centredLeft);
     
     g.setColour(juce::Colour(0x44000000));
-    g.fillRoundedRectangle(70.0f, 70.0f, 300.0f, 160.0f, 5.0f);
-    g.fillRoundedRectangle(830.0f, 70.0f, 300.0f, 160.0f, 5.0f);
+    g.fillRoundedRectangle(460.0f, 70.0f, 400.0f, 140.0f, 5.0f);
 }
 
 void IronCompressorAudioProcessorEditor::resized()
@@ -410,84 +423,73 @@ void IronCompressorAudioProcessorEditor::resized()
     auto area = getLocalBounds();
     area.removeFromTop (60);
 
-    presetBox.setBounds (500, 15, 150, 30);
+    presetBox.setBounds (600, 15, 150, 30);
 
     const int knobSize = 80;
     const int bigKnobSize = 120;
-    const int colSpacing = 160;
-    const int rowSpacing = 160;
 
     auto posKnob = [](juce::Label& l, juce::Slider& s, int x, int y, int w, int h) {
         l.setBounds(x - 30, y, w + 60, 20); 
         s.setBounds(x, y + 25, w, h);       
     };
 
-    // 1. VU-МЕТРЫ
-    vuMeter_L.setBounds (70, 70, 300, 160);
-    vuMeter_R.setBounds (830, 70, 300, 160);
+    // 1. VU-МЕТРЫ (По центру)
+    vuMeter_L.setBounds (480, 80, 180, 120);
+    vuMeter_R.setBounds (680, 80, 180, 120);
 
     // 2. БЛОК TMT (По центру)
-    int cx = 600; 
-    labelTmtOn.setBounds(cx - 20, 70, 40, 20);
-    tmtEnableToggle.setBounds (cx - 40, 90, 80, 30); 
+    int cx = 670; 
+    labelTmtOn.setBounds(cx - 20, 210, 40, 20);
+    tmtEnableToggle.setBounds (cx - 40, 230, 80, 30); 
 
-    tmtModeButton.setBounds (cx - 110, 130, 40, 24);
-    tmtLeftBtn.setBounds (cx - 65, 130, 30, 24);
-    tmtDisplay.setBounds (cx - 30, 130, 60, 24);
-    tmtRightBtn.setBounds (cx + 35, 130, 30, 24);
-    tmtRandomBtn.setBounds (cx + 70, 130, 40, 24);
+    tmtModeButton.setBounds (cx - 110, 270, 40, 24);
+    tmtLeftBtn.setBounds (cx - 65, 270, 30, 24);
+    tmtDisplay.setBounds (cx - 30, 270, 60, 24);
+    tmtRightBtn.setBounds (cx + 35, 270, 30, 24);
+    tmtRandomBtn.setBounds (cx + 70, 270, 40, 24);
 
     // 3. ЛЕВЫЙ КАНАЛ
     int lx = 20;
-    posKnob(labelInput_L, inputGainSlider_L, lx, 270, knobSize, knobSize);
-    posKnob(labelAttack_L, attackSlider_L, lx + colSpacing, 270, knobSize, knobSize);
-    posKnob(labelThreshold_L, thresholdSlider_L, lx + colSpacing * 2, 260, bigKnobSize, bigKnobSize);
-    
-    posKnob(labelRelease_L, releaseSlider_L, lx, 270 + rowSpacing, knobSize, knobSize);
-    
-    labelBias_L.setBounds(lx + colSpacing, 270 + rowSpacing, 100, 20);
-    biasSlider_L.setBounds(lx + colSpacing + 10, 270 + rowSpacing + 25, 60, 100);
-    
-    posKnob(labelRectifier_L, rectifierSlider_L, lx + colSpacing * 2, 270 + rowSpacing, knobSize, knobSize); 
-    
-    posKnob(labelSidechain_L, sidechainSlider_L, lx, 270 + rowSpacing * 2, knobSize, knobSize);
-    
-    labelAirBass_L.setBounds(lx + colSpacing, 270 + rowSpacing * 2, 100, 20);
-    airBassSlider_L.setBounds(lx + colSpacing + 10, 270 + rowSpacing * 2 + 25, 60, 100);
-    
-    posKnob(labelOutput_L, outputGainSlider_L, lx + colSpacing * 2, 270 + rowSpacing * 2, knobSize, knobSize);
+    posKnob(labelInput_L, inputGainSlider_L, lx, 90, knobSize, knobSize);
+    posKnob(labelAttack_L, attackSlider_L, lx + 120, 90, knobSize, knobSize);
+    posKnob(labelRelease_L, releaseSlider_L, lx + 240, 90, knobSize, knobSize);
+    posKnob(labelThreshold_L, thresholdSlider_L, lx + 360, 80, bigKnobSize, bigKnobSize);
+
+    posKnob(labelOutput_L, outputGainSlider_L, lx, 230, knobSize, knobSize);
+    labelBias_L.setBounds(lx + 120, 230, 80, 20);
+    biasSlider_L.setBounds(lx + 130, 260, 60, 100);
+    posKnob(labelRectifier_L, rectifierSlider_L, lx + 240, 230, knobSize, knobSize);
+    posKnob(labelSidechain_L, sidechainSlider_L, lx + 360, 230, knobSize, knobSize);
+
+    labelAirBass_L.setBounds(lx + 120, 380, 80, 20);
+    airBassSlider_L.setBounds(lx + 130, 410, 60, 100);
 
     // 4. ПРАВЫЙ КАНАЛ
-    int rx = 1200 - 20 - knobSize;
-    posKnob(labelInput_R, inputGainSlider_R, rx, 270, knobSize, knobSize);
-    posKnob(labelAttack_R, attackSlider_R, rx - colSpacing, 270, knobSize, knobSize);
-    posKnob(labelThreshold_R, thresholdSlider_R, rx - colSpacing * 2 - (bigKnobSize - knobSize), 260, bigKnobSize, bigKnobSize);
-    
-    posKnob(labelRelease_R, releaseSlider_R, rx, 270 + rowSpacing, knobSize, knobSize);
-    
-    labelBias_R.setBounds(rx - colSpacing, 270 + rowSpacing, 100, 20);
-    biasSlider_R.setBounds(rx - colSpacing + 10, 270 + rowSpacing + 25, 60, 100);
-    
-    posKnob(labelRectifier_R, rectifierSlider_R, rx - colSpacing * 2 - (bigKnobSize - knobSize), 270 + rowSpacing, knobSize, knobSize);
-    
-    posKnob(labelSidechain_R, sidechainSlider_R, rx, 270 + rowSpacing * 2, knobSize, knobSize);
-    
-    labelAirBass_R.setBounds(rx - colSpacing, 270 + rowSpacing * 2, 100, 20);
-    airBassSlider_R.setBounds(rx - colSpacing + 10, 270 + rowSpacing * 2 + 25, 60, 100);
-    
-    posKnob(labelOutput_R, outputGainSlider_R, rx - colSpacing * 2 - (bigKnobSize - knobSize), 270 + rowSpacing * 2, knobSize, knobSize);
+    int rx = 1350 - 20 - bigKnobSize - 360 - 80; // 850
+    posKnob(labelThreshold_R, thresholdSlider_R, 1350 - 20 - bigKnobSize - 360 + 80, 80, bigKnobSize, bigKnobSize);
+    posKnob(labelRelease_R, releaseSlider_R, 1350 - 20 - 120 - 80, 90, knobSize, knobSize);
+    posKnob(labelAttack_R, attackSlider_R, 1350 - 20 - 240 - 80, 90, knobSize, knobSize);
+    posKnob(labelInput_R, inputGainSlider_R, 1350 - 20 - 360 - 80, 90, knobSize, knobSize);
 
-    // 5. МАСТЕР-СЕКЦИЯ
-    int mx = 350; 
-    labelLink.setBounds (mx + 50, 820, 80, 20);
-    linkButton.setBounds (mx + 50, 840, 80, 24);
+    posKnob(labelSidechain_R, sidechainSlider_R, 1350 - 20 - 360 - 80, 230, knobSize, knobSize);
+    posKnob(labelRectifier_R, rectifierSlider_R, 1350 - 20 - 240 - 80, 230, knobSize, knobSize);
+    labelBias_R.setBounds(1350 - 20 - 120 - 80, 230, 80, 20);
+    biasSlider_R.setBounds(1350 - 20 - 120 - 70, 260, 60, 100);
+    posKnob(labelOutput_R, outputGainSlider_R, 1350 - 20 - 80, 230, knobSize, knobSize);
 
-    labelMidSide.setBounds (mx + 350, 820, 80, 20);
-    midSideButton.setBounds (mx + 350, 840, 80, 24);
+    labelAirBass_R.setBounds(1350 - 20 - 120 - 80, 380, 80, 20);
+    airBassSlider_R.setBounds(1350 - 20 - 120 - 70, 410, 60, 100);
 
-    int mkW = 600 / 4; 
-    posKnob(labelMix, mixSlider, mx, 870, knobSize, knobSize);
-    posKnob(labelWidth, widthSlider, mx + mkW, 870, knobSize, knobSize);
-    posKnob(labelMono, monoSlider, mx + mkW*2, 870, knobSize, knobSize);
-    posKnob(labelHeadroom, headroomSlider, mx + mkW*3, 870, knobSize, knobSize);
+    // 5. МАСТЕР-СЕКЦИЯ (По центру снизу)
+    int mx = 450; 
+    labelLink.setBounds (mx + 50, 380, 80, 20);
+    linkButton.setBounds (mx + 50, 400, 80, 24);
+
+    labelMidSide.setBounds (mx + 350, 380, 80, 20);
+    midSideButton.setBounds (mx + 350, 400, 80, 24);
+
+    posKnob(labelMix, mixSlider, mx, 480, knobSize, knobSize);
+    posKnob(labelWidth, widthSlider, mx + 120, 480, knobSize, knobSize);
+    posKnob(labelMono, monoSlider, mx + 240, 480, knobSize, knobSize);
+    posKnob(labelHeadroom, headroomSlider, mx + 360, 480, knobSize, knobSize);
 }
