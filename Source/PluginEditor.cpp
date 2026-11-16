@@ -122,21 +122,26 @@ IronCompressorAudioProcessorEditor::IronCompressorAudioProcessorEditor (IronComp
 
     auto setupSlider = [this](juce::Slider& s, juce::Label& l, const juce::String& name) {
         s.setSliderStyle (juce::Slider::RotaryHorizontalVerticalDrag);
-        s.setTextBoxStyle (juce::Slider::TextBoxBelow, false, 60, 20);
+        s.setTextBoxStyle (juce::TextBoxBelow, false, 60, 20);
+        s.setLookAndFeel(&filmstripLnf);
         addAndMakeVisible (s);
         l.setText (name, juce::dontSendNotification);
         l.setJustificationType (juce::Justification::centred);
+        l.setFont(juce::FontOptions(12.0f));
+        l.setMinimumHorizontalScale(0.5f);
         addAndMakeVisible (l);
     };
 
     auto setupSteppedSlider = [this](juce::Slider& s, juce::Label& l, const juce::String& name, int numSteps) {
         s.setSliderStyle (juce::Slider::RotaryHorizontalVerticalDrag);
-        s.setTextBoxStyle (juce::Slider::NoTextBox, false, 0, 0);
-        s.setRange(0.0, (double)(numSteps - 1), 1.0);
-        s.setLookAndFeel(&steppedLnf);
+        s.setTextBoxStyle (juce::Slider::NoTextBox, false, 0, 0); // Текст скрыт, мы выведем его в Label
+        s.setRange(0.0, (double)(numSteps - 1), 1.0); // Отщелкивание
+        s.setLookAndFeel(&filmstripLnf);
         addAndMakeVisible (s);
         l.setText (name, juce::dontSendNotification);
         l.setJustificationType (juce::Justification::centred);
+        l.setFont(juce::FontOptions(12.0f));
+        l.setMinimumHorizontalScale(0.5f);
         addAndMakeVisible (l);
     };
 
@@ -155,6 +160,12 @@ IronCompressorAudioProcessorEditor::IronCompressorAudioProcessorEditor (IronComp
     airBassSlider_L.setRange(0.0, 2.0, 1.0);
     airBassSlider_L.setLookAndFeel(&switchLnf);
     addAndMakeVisible(airBassSlider_L);
+    
+    labelAirBass_L.setText("AIR/TAPE L", juce::dontSendNotification);
+    labelAirBass_L.setJustificationType(juce::Justification::centred);
+    labelAirBass_L.setFont(juce::FontOptions(12.0f));
+    labelAirBass_L.setMinimumHorizontalScale(0.5f);
+    addAndMakeVisible(labelAirBass_L);
 
     // Правый канал
     setupSlider(thresholdSlider_R, labelThreshold_R, "THRESHOLD R");
@@ -171,6 +182,12 @@ IronCompressorAudioProcessorEditor::IronCompressorAudioProcessorEditor (IronComp
     airBassSlider_R.setRange(0.0, 2.0, 1.0);
     airBassSlider_R.setLookAndFeel(&switchLnf);
     addAndMakeVisible(airBassSlider_R);
+    
+    labelAirBass_R.setText("AIR/TAPE R", juce::dontSendNotification);
+    labelAirBass_R.setJustificationType(juce::Justification::centred);
+    labelAirBass_R.setFont(juce::FontOptions(12.0f));
+    labelAirBass_R.setMinimumHorizontalScale(0.5f);
+    addAndMakeVisible(labelAirBass_R);
 
     // Мастер
     setupSlider(mixSlider, labelMix, "MIX");
@@ -248,6 +265,43 @@ IronCompressorAudioProcessorEditor::~IronCompressorAudioProcessorEditor()
 
 void IronCompressorAudioProcessorEditor::timerCallback()
 {
+    // --- ОБНОВЛЕНИЕ ТЕКСТОВЫХ ЗНАЧЕНИЙ НАД РУЧКАМИ ---
+    static const juce::StringArray attackVals {"0.1 ms", "0.2 ms", "0.5 ms", "1 ms", "2 ms", "5 ms"};
+    static const juce::StringArray releaseVals {"200 ms", "300 ms", "500 ms", "1 s", "2 s", "5 s"};
+    static const juce::StringArray biasVals {"Low", "Mid", "High"};
+    static const juce::StringArray rectifierVals {"Germanium 1mF", "Germanium 2mF", "LED 3.3mF", "Silicon 330nF", "Germanium 220nF", "Silicon/Germ"};
+    static const juce::StringArray sidechainVals {"Off", "Preset 1", "Preset 2", "Preset 3", "Preset 4"};
+    static const juce::StringArray airBassVals {"Bypass", "AirBass", "Tape Roll-Off"};
+
+    int attIdxL = juce::jlimit(0, 5, (int)attackSlider_L.getValue());
+    int relIdxL = juce::jlimit(0, 5, (int)releaseSlider_L.getValue());
+    int biasIdxL = juce::jlimit(0, 2, (int)biasSlider_L.getValue());
+    int rectIdxL = juce::jlimit(0, 5, (int)rectifierSlider_L.getValue());
+    int scIdxL = juce::jlimit(0, 4, (int)sidechainSlider_L.getValue());
+    int airIdxL = juce::jlimit(0, 2, (int)airBassSlider_L.getValue());
+
+    labelAttack_L.setText("ATTACK L: " + attackVals[attIdxL], juce::dontSendNotification);
+    labelRelease_L.setText("RELEASE L: " + releaseVals[relIdxL], juce::dontSendNotification);
+    labelBias_L.setText("BIAS L: " + biasVals[biasIdxL], juce::dontSendNotification);
+    labelRectifier_L.setText("RECT L: " + rectifierVals[rectIdxL], juce::dontSendNotification);
+    labelSidechain_L.setText("SC EQ L: " + sidechainVals[scIdxL], juce::dontSendNotification);
+    labelAirBass_L.setText("AIR/TAPE L: " + airBassVals[airIdxL], juce::dontSendNotification);
+
+    int attIdxR = juce::jlimit(0, 5, (int)attackSlider_R.getValue());
+    int relIdxR = juce::jlimit(0, 5, (int)releaseSlider_R.getValue());
+    int biasIdxR = juce::jlimit(0, 2, (int)biasSlider_R.getValue());
+    int rectIdxR = juce::jlimit(0, 5, (int)rectifierSlider_R.getValue());
+    int scIdxR = juce::jlimit(0, 4, (int)sidechainSlider_R.getValue());
+    int airIdxR = juce::jlimit(0, 2, (int)airBassSlider_R.getValue());
+
+    labelAttack_R.setText("ATTACK R: " + attackVals[attIdxR], juce::dontSendNotification);
+    labelRelease_R.setText("RELEASE R: " + releaseVals[relIdxR], juce::dontSendNotification);
+    labelBias_R.setText("BIAS R: " + biasVals[biasIdxR], juce::dontSendNotification);
+    labelRectifier_R.setText("RECT R: " + rectifierVals[rectIdxR], juce::dontSendNotification);
+    labelSidechain_R.setText("SC EQ R: " + sidechainVals[scIdxR], juce::dontSendNotification);
+    labelAirBass_R.setText("AIR/TAPE R: " + airBassVals[airIdxR], juce::dontSendNotification);
+
+    // --- VU-МЕТРЫ ---
     int modeL = vuSwitch_L.getSelectedId() - 1;
     int modeR = vuSwitch_R.getSelectedId() - 1;
 
@@ -260,6 +314,7 @@ void IronCompressorAudioProcessorEditor::timerCallback()
     vuMeter_L.tick();
     vuMeter_R.tick();
 
+    // --- СИНХРОНИЗАЦИЯ LINK ---
     bool isTMTEnabled = audioProcessor.apvts.getRawParameterValue("tmtEnable")->load() > 0.5f;
     bool isLink = audioProcessor.apvts.getRawParameterValue("link")->load() > 0.5f;
     
@@ -285,6 +340,7 @@ void IronCompressorAudioProcessorEditor::timerCallback()
         sidechainSlider_R.setValue(sidechainSlider_L.getValue(), juce::dontSendNotification);
     }
 
+    // --- TMT ---
     tmtModeButton.setEnabled(isTMTEnabled);
     tmtLeftBtn.setEnabled(isTMTEnabled);
     tmtRightBtn.setEnabled(isTMTEnabled);
@@ -332,7 +388,6 @@ void IronCompressorAudioProcessorEditor::paint (juce::Graphics& g)
     g.setFont (14.0f);
     g.drawText ("Parallel Dual-Tube Compressor", 160, 15, 300, 30, juce::Justification::centredLeft);
     
-    // Темные подложки под VU-метры (скорректированы под новые координаты)
     g.setColour(juce::Colour(0x44000000));
     g.fillRoundedRectangle(90.0f, 70.0f, 270.0f, 140.0f, 5.0f);
     g.fillRoundedRectangle(740.0f, 70.0f, 270.0f, 140.0f, 5.0f);
@@ -340,30 +395,27 @@ void IronCompressorAudioProcessorEditor::paint (juce::Graphics& g)
 
 void IronCompressorAudioProcessorEditor::resized()
 {
-    // Убираем верхнюю панель
     auto area = getLocalBounds();
     area.removeFromTop (60);
 
-    // Пресеты в самом верху по центру
     presetBox.setBounds (400, 15, 150, 30);
 
     const int knobSize = 80;
     const int bigKnobSize = 120;
     
-    // Лямбда для удобного размещения (Label над ручкой)
+    // Делаем метки чуть шире и выше, чтобы влезал текст со значением
     auto posKnob = [](juce::Label& l, juce::Slider& s, int x, int y, int w, int h) {
-        l.setBounds(x, y, w, 16);
-        s.setBounds(x, y + 16, w, h);
+        l.setBounds(x - 20, y, w + 40, 20); // Метка теперь выше и шире
+        s.setBounds(x, y + 20, w, h);       // Ручка сдвинута вниз
     };
 
-    // === 1. VU-МЕТРЫ И ПЕРЕКЛЮЧАТЕЛИ ===
+    // 1. VU-МЕТРЫ
     vuMeter_L.setBounds (100, 80, 250, 100);
     vuSwitch_L.setBounds (175, 185, 100, 24);
-
     vuMeter_R.setBounds (750, 80, 250, 100);
     vuSwitch_R.setBounds (825, 185, 100, 24);
 
-    // === 2. БЛОК TMT (По центру) ===
+    // 2. БЛОК TMT
     tmtEnableToggle.setBounds (460, 80, 80, 30);
     tmtModeButton.setBounds (460, 120, 40, 24);
     tmtLeftBtn.setBounds (505, 120, 30, 24);
@@ -371,39 +423,37 @@ void IronCompressorAudioProcessorEditor::resized()
     tmtRightBtn.setBounds (605, 120, 30, 24);
     tmtRandomBtn.setBounds (640, 120, 40, 24);
 
-    // === 3. ЛЕВЫЙ КАНАЛ ===
-    posKnob(labelInput_L, inputGainSlider_L, 20, 240, knobSize, knobSize);
-    posKnob(labelAttack_L, attackSlider_L, 120, 240, knobSize, knobSize);
-    posKnob(labelThreshold_L, thresholdSlider_L, 220, 240, bigKnobSize, bigKnobSize);
+    // 3. ЛЕВЫЙ КАНАЛ
+    posKnob(labelInput_L, inputGainSlider_L, 20, 230, knobSize, knobSize);
+    posKnob(labelAttack_L, attackSlider_L, 120, 230, knobSize, knobSize);
+    posKnob(labelThreshold_L, thresholdSlider_L, 220, 230, bigKnobSize, bigKnobSize);
     
-    posKnob(labelRelease_L, releaseSlider_L, 20, 350, knobSize, knobSize);
-    posKnob(labelBias_L, biasSlider_L, 120, 350, knobSize, knobSize);
+    posKnob(labelRelease_L, releaseSlider_L, 20, 340, knobSize, knobSize);
+    posKnob(labelBias_L, biasSlider_L, 120, 340, knobSize, knobSize);
     
-    posKnob(labelRectifier_L, rectifierSlider_L, 220, 390, knobSize + 20, knobSize); // Шире для текста
-    posKnob(labelOutput_L, outputGainSlider_L, 220, 490, knobSize, knobSize);
-    posKnob(labelSidechain_L, sidechainSlider_L, 20, 460, knobSize, knobSize);
+    posKnob(labelRectifier_L, rectifierSlider_L, 200, 370, knobSize + 40, knobSize);
+    posKnob(labelOutput_L, outputGainSlider_L, 220, 480, knobSize, knobSize);
+    posKnob(labelSidechain_L, sidechainSlider_L, 20, 450, knobSize, knobSize);
     
-    // Air/Tape L (вертикальный тумблер)
-    labelAirBass_L.setBounds(120, 460, knobSize, 16);
-    airBassSlider_L.setBounds(130, 480, 60, 80);
+    labelAirBass_L.setBounds(110, 450, 100, 20);
+    airBassSlider_L.setBounds(130, 470, 60, 80);
 
-    // === 4. ПРАВЫЙ КАНАЛ ===
-    posKnob(labelInput_R, inputGainSlider_R, 1000, 240, knobSize, knobSize);
-    posKnob(labelAttack_R, attackSlider_R, 900, 240, knobSize, knobSize);
-    posKnob(labelThreshold_R, thresholdSlider_R, 760, 240, bigKnobSize, bigKnobSize);
+    // 4. ПРАВЫЙ КАНАЛ
+    posKnob(labelInput_R, inputGainSlider_R, 1000, 230, knobSize, knobSize);
+    posKnob(labelAttack_R, attackSlider_R, 900, 230, knobSize, knobSize);
+    posKnob(labelThreshold_R, thresholdSlider_R, 760, 230, bigKnobSize, bigKnobSize);
     
-    posKnob(labelRelease_R, releaseSlider_R, 1000, 350, knobSize, knobSize);
-    posKnob(labelBias_R, biasSlider_R, 900, 350, knobSize, knobSize);
+    posKnob(labelRelease_R, releaseSlider_R, 1000, 340, knobSize, knobSize);
+    posKnob(labelBias_R, biasSlider_R, 900, 340, knobSize, knobSize);
     
-    posKnob(labelRectifier_R, rectifierSlider_R, 780, 390, knobSize + 20, knobSize); // Шире для текста
-    posKnob(labelOutput_R, outputGainSlider_R, 800, 490, knobSize, knobSize);
-    posKnob(labelSidechain_R, sidechainSlider_R, 1000, 460, knobSize, knobSize);
+    posKnob(labelRectifier_R, rectifierSlider_R, 760, 370, knobSize + 40, knobSize);
+    posKnob(labelOutput_R, outputGainSlider_R, 800, 480, knobSize, knobSize);
+    posKnob(labelSidechain_R, sidechainSlider_R, 1000, 450, knobSize, knobSize);
     
-    // Air/Tape R (вертикальный тумблер)
-    labelAirBass_R.setBounds(900, 460, knobSize, 16);
-    airBassSlider_R.setBounds(910, 480, 60, 80);
+    labelAirBass_R.setBounds(890, 450, 100, 20);
+    airBassSlider_R.setBounds(910, 470, 60, 80);
 
-    // === 5. МАСТЕР-СЕКЦИЯ (Снизу по центру) ===
+    // 5. МАСТЕР-СЕКЦИЯ
     linkButton.setBounds (380, 580, 120, 30);
     midSideButton.setBounds (600, 580, 120, 30);
 
