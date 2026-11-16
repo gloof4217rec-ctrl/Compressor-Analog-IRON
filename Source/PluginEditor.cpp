@@ -22,11 +22,9 @@ IronCompressorAudioProcessorEditor::IronCompressorAudioProcessorEditor (IronComp
     : AudioProcessorEditor (&p), audioProcessor (p)
 {
     startTimerHz(30);
-
     addAndMakeVisible(vuMeter_L);
     addAndMakeVisible(vuMeter_R);
 
-    // VU Переключатели
     vuSwitch_L.addItemList({"GR", "OUT 0dB", "OUT +10dB"}, 1);
     vuSwitch_L.setSelectedId(1);
     vuSwitch_L.onChange = [this]() { vuMeter_L.setMode(vuSwitch_L.getSelectedId() - 1); };
@@ -37,7 +35,6 @@ IronCompressorAudioProcessorEditor::IronCompressorAudioProcessorEditor (IronComp
     vuSwitch_R.onChange = [this]() { vuMeter_R.setMode(vuSwitch_R.getSelectedId() - 1); };
     addAndMakeVisible(vuSwitch_R);
 
-    // Пресеты
     presetBox.addItem("Default", 1);
     presetBox.addItem("Vocal Bus", 2);
     presetBox.addItem("Drum Bus", 3);
@@ -56,42 +53,33 @@ IronCompressorAudioProcessorEditor::IronCompressorAudioProcessorEditor (IronComp
 
         if (id == 2) {
             setP("thresholdL", -15.0f); setP("thresholdR", -15.0f);
-            setC("attackL", 2); setC("attackR", 2);
-            setC("releaseL", 2); setC("releaseR", 2);
+            setC("attackL", 2); setC("attackR", 2); setC("releaseL", 2); setC("releaseR", 2);
             setC("biasL", 1); setC("biasR", 1);
             setC("sidechainEqL", 1); setC("sidechainEqR", 1);
-            setP("stereoWidth", 1.2f);
-            setP("mix", 1.0f);
+            setP("stereoWidth", 1.2f); setP("mix", 1.0f);
         } else if (id == 3) {
             setP("thresholdL", -10.0f); setP("thresholdR", -10.0f);
-            setC("attackL", 0); setC("attackR", 0);
-            setC("releaseL", 1); setC("releaseR", 1);
+            setC("attackL", 0); setC("attackR", 0); setC("releaseL", 1); setC("releaseR", 1);
             setC("biasL", 2); setC("biasR", 2);
             setC("sidechainEqL", 0); setC("sidechainEqR", 0);
-            setP("stereoWidth", 1.0f);
-            setP("mix", 0.8f);
+            setP("stereoWidth", 1.0f); setP("mix", 0.8f);
         } else if (id == 4) {
             setP("thresholdL", -20.0f); setP("thresholdR", -20.0f);
-            setC("attackL", 3); setC("attackR", 3);
-            setC("releaseL", 3); setC("releaseR", 3);
+            setC("attackL", 3); setC("attackR", 3); setC("releaseL", 3); setC("releaseR", 3);
             setC("biasL", 0); setC("biasR", 0);
             setC("airBassL", 1); setC("airBassR", 1);
-            setP("stereoWidth", 1.5f);
-            setP("mix", 1.0f);
+            setP("stereoWidth", 1.5f); setP("mix", 1.0f);
         } else {
             setP("thresholdL", -10.0f); setP("thresholdR", -10.0f);
-            setC("attackL", 2); setC("attackR", 2);
-            setC("releaseL", 2); setC("releaseR", 2);
+            setC("attackL", 2); setC("attackR", 2); setC("releaseL", 2); setC("releaseR", 2);
             setC("biasL", 0); setC("biasR", 0);
             setC("sidechainEqL", 0); setC("sidechainEqR", 0);
             setC("airBassL", 0); setC("airBassR", 0);
-            setP("stereoWidth", 1.0f);
-            setP("mix", 1.0f);
+            setP("stereoWidth", 1.0f); setP("mix", 1.0f);
         }
     };
     addAndMakeVisible(presetBox);
 
-    // TMT
     addAndMakeVisible(tmtEnableToggle);
     addAndMakeVisible(tmtModeButton);
     addAndMakeVisible(tmtLeftBtn);
@@ -160,8 +148,14 @@ IronCompressorAudioProcessorEditor::IronCompressorAudioProcessorEditor (IronComp
     setupSteppedSlider(releaseSlider_L, labelRelease_L, "RELEASE L", 6);
     setupSteppedSlider(biasSlider_L, labelBias_L, "BIAS L", 3);
     setupSteppedSlider(rectifierSlider_L, labelRectifier_L, "RECTIFIER L", 6);
-    setupSteppedSlider(airBassSlider_L, labelAirBass_L, "AIR/TAPE L", 3);
     setupSteppedSlider(sidechainSlider_L, labelSidechain_L, "SC EQ L", 5);
+
+    // НАСТРОЙКА ТРЕХПОЗИЦИОННОГО ТУМБЛЕРА L
+    airBassSlider_L.setSliderStyle(juce::Slider::LinearVertical);
+    airBassSlider_L.setTextBoxStyle(juce::Slider::NoTextBox, false, 0, 0);
+    airBassSlider_L.setRange(0.0, 2.0, 1.0);
+    airBassSlider_L.setLookAndFeel(&switchLnf);
+    addAndMakeVisible(airBassSlider_L);
 
     // Правый канал
     setupSlider(thresholdSlider_R, labelThreshold_R, "THRESHOLD R");
@@ -171,8 +165,14 @@ IronCompressorAudioProcessorEditor::IronCompressorAudioProcessorEditor (IronComp
     setupSteppedSlider(releaseSlider_R, labelRelease_R, "RELEASE R", 6);
     setupSteppedSlider(biasSlider_R, labelBias_R, "BIAS R", 3);
     setupSteppedSlider(rectifierSlider_R, labelRectifier_R, "RECTIFIER R", 6);
-    setupSteppedSlider(airBassSlider_R, labelAirBass_R, "AIR/TAPE R", 3);
     setupSteppedSlider(sidechainSlider_R, labelSidechain_R, "SC EQ R", 5);
+
+    // НАСТРОЙКА ТРЕХПОЗИЦИОННОГО ТУМБЛЕРА R
+    airBassSlider_R.setSliderStyle(juce::Slider::LinearVertical);
+    airBassSlider_R.setTextBoxStyle(juce::Slider::NoTextBox, false, 0, 0);
+    airBassSlider_R.setRange(0.0, 2.0, 1.0);
+    airBassSlider_R.setLookAndFeel(&switchLnf);
+    addAndMakeVisible(airBassSlider_R);
 
     // Мастер
     setupSlider(mixSlider, labelMix, "MIX");
@@ -180,9 +180,9 @@ IronCompressorAudioProcessorEditor::IronCompressorAudioProcessorEditor (IronComp
     setupSlider(monoSlider, labelMono, "MONO");
     setupSlider(headroomSlider, labelHeadroom, "HEADROOM");
 
-    linkButton.setLookAndFeel(&toggleLnf);
-    midSideButton.setLookAndFeel(&toggleLnf);
-    tmtEnableToggle.setLookAndFeel(&toggleLnf);
+    linkButton.setLookAndFeel(&switchLnf);
+    midSideButton.setLookAndFeel(&switchLnf);
+    tmtEnableToggle.setLookAndFeel(&switchLnf);
 
     addAndMakeVisible(linkButton);
     addAndMakeVisible(midSideButton);
@@ -195,8 +195,8 @@ IronCompressorAudioProcessorEditor::IronCompressorAudioProcessorEditor (IronComp
     attRelease_L = std::make_unique<SliderAttachment>(audioProcessor.apvts, "releaseL", releaseSlider_L);
     attBias_L = std::make_unique<SliderAttachment>(audioProcessor.apvts, "biasL", biasSlider_L);
     attRectifier_L = std::make_unique<SliderAttachment>(audioProcessor.apvts, "rectifierL", rectifierSlider_L);
-    attAirBass_L = std::make_unique<SliderAttachment>(audioProcessor.apvts, "airBassL", airBassSlider_L);
     attSidechain_L = std::make_unique<SliderAttachment>(audioProcessor.apvts, "sidechainEqL", sidechainSlider_L);
+    attAirBass_L = std::make_unique<SliderAttachment>(audioProcessor.apvts, "airBassL", airBassSlider_L);
 
     attThreshold_R = std::make_unique<SliderAttachment>(audioProcessor.apvts, "thresholdR", thresholdSlider_R);
     attInput_R = std::make_unique<SliderAttachment>(audioProcessor.apvts, "inputGainR", inputGainSlider_R);
@@ -205,8 +205,8 @@ IronCompressorAudioProcessorEditor::IronCompressorAudioProcessorEditor (IronComp
     attRelease_R = std::make_unique<SliderAttachment>(audioProcessor.apvts, "releaseR", releaseSlider_R);
     attBias_R = std::make_unique<SliderAttachment>(audioProcessor.apvts, "biasR", biasSlider_R);
     attRectifier_R = std::make_unique<SliderAttachment>(audioProcessor.apvts, "rectifierR", rectifierSlider_R);
-    attAirBass_R = std::make_unique<SliderAttachment>(audioProcessor.apvts, "airBassR", airBassSlider_R);
     attSidechain_R = std::make_unique<SliderAttachment>(audioProcessor.apvts, "sidechainEqR", sidechainSlider_R);
+    attAirBass_R = std::make_unique<SliderAttachment>(audioProcessor.apvts, "airBassR", airBassSlider_R);
 
     attMix = std::make_unique<SliderAttachment>(audioProcessor.apvts, "mix", mixSlider);
     attWidth = std::make_unique<SliderAttachment>(audioProcessor.apvts, "stereoWidth", widthSlider);
@@ -215,7 +215,6 @@ IronCompressorAudioProcessorEditor::IronCompressorAudioProcessorEditor (IronComp
     attLink = std::make_unique<ButtonAttachment>(audioProcessor.apvts, "link", linkButton);
     attMidSide = std::make_unique<ButtonAttachment>(audioProcessor.apvts, "midSide", midSideButton);
 
-    // ФИКС LINK
     linkButton.onClick = [this]() {
         if (!linkButton.getToggleState()) {
             auto copyParam = [&](const juce::String& idL, const juce::String& idR) {
@@ -253,13 +252,10 @@ void IronCompressorAudioProcessorEditor::timerCallback()
 {
     int modeL = vuSwitch_L.getSelectedId() - 1;
     int modeR = vuSwitch_R.getSelectedId() - 1;
-
     if (modeL == 0) vuMeter_L.setLevel(audioProcessor.currentGR_dB_L.load());
     else vuMeter_L.setLevel(audioProcessor.currentOut_dB_L.load());
-
     if (modeR == 0) vuMeter_R.setLevel(audioProcessor.currentGR_dB_R.load());
     else vuMeter_R.setLevel(audioProcessor.currentOut_dB_R.load());
-
     vuMeter_L.tick();
     vuMeter_R.tick();
 
@@ -298,9 +294,7 @@ void IronCompressorAudioProcessorEditor::timerCallback()
         auto* param = audioProcessor.apvts.getParameter("tmtChannel");
         int current = static_cast<int>(param->getValue() * 9);
         bool isDigital = audioProcessor.apvts.getRawParameterValue("tmtStereoMode")->load() > 0.5f;
-        
         tmtModeButton.setButtonText(isDigital ? "A" : "D");
-        
         if (isDigital) {
             tmtDisplay.setText(juce::String(current * 2 + 1) + "-" + juce::String(current * 2 + 1), juce::dontSendNotification);
         } else {
@@ -313,10 +307,7 @@ void IronCompressorAudioProcessorEditor::timerCallback()
 
 void IronCompressorAudioProcessorEditor::paint (juce::Graphics& g)
 {
-    static juce::Image bgTextureOriginal = juce::ImageFileFormat::loadFrom(
-        BinaryData::bg_texture_jpg, 
-        BinaryData::bg_texture_jpgSize
-    );
+    static juce::Image bgTextureOriginal = juce::ImageFileFormat::loadFrom(BinaryData::bg_texture_jpg, BinaryData::bg_texture_jpgSize);
     static juce::Image bgTextureTinted = createTintedImage(bgTextureOriginal, juce::Colour(0xffb30000));
 
     if (bgTextureTinted.isValid())
@@ -354,7 +345,6 @@ void IronCompressorAudioProcessorEditor::resized()
     // VU и переключатели
     vuMeter_L.setBounds (210, 70, 300, 90);
     vuSwitch_L.setBounds (315, 165, 90, 22);
-
     vuMeter_R.setBounds (590, 70, 300, 90);
     vuSwitch_R.setBounds (695, 165, 90, 22);
 
@@ -371,76 +361,57 @@ void IronCompressorAudioProcessorEditor::resized()
     int lx = 20;
     labelInput_L.setBounds (lx, 80, 80, labelHeight);
     inputGainSlider_L.setBounds (lx, 100, 80, smallKnob + 20);
-    
     labelThreshold_L.setBounds (350, 210, 100, labelHeight);
     thresholdSlider_L.setBounds (330, 230, bigKnob + 40, bigKnob + 40);
-
     labelAttack_L.setBounds (120, 210, 80, labelHeight);
     attackSlider_L.setBounds (120, 230, 80, smallKnob + 20);
-    
     labelRelease_L.setBounds (120, 310, 80, labelHeight);
     releaseSlider_L.setBounds (120, 330, 80, smallKnob + 20);
-
     labelBias_L.setBounds (lx, 340, 80, labelHeight);
     biasSlider_L.setBounds (lx, 360, 80, smallKnob + 20);
-    
     labelRectifier_L.setBounds (130, 430, 150, labelHeight);
     rectifierSlider_L.setBounds (130, 450, 80, smallKnob + 20);
-
     labelOutput_L.setBounds (lx, 460, 80, labelHeight);
     outputGainSlider_L.setBounds (lx, 480, 80, smallKnob + 20);
-
     labelSidechain_L.setBounds (250, 420, 100, labelHeight);
     sidechainSlider_L.setBounds (250, 440, 80, smallKnob + 20);
     
-    labelAirBass_L.setBounds (250, 520, 100, labelHeight);
-    airBassSlider_L.setBounds (250, 540, 80, smallKnob + 20);
+    // ТУМБЛЕР L
+    airBassSlider_L.setBounds (250, 520, 60, 80); 
 
     // Правый канал
     int rx = 1000;
     labelInput_R.setBounds (rx, 80, 80, labelHeight);
     inputGainSlider_R.setBounds (rx, 100, 80, smallKnob + 20);
-    
     labelThreshold_R.setBounds (650, 210, 100, labelHeight);
     thresholdSlider_R.setBounds (630, 230, bigKnob + 40, bigKnob + 40);
-
     labelAttack_R.setBounds (880, 210, 80, labelHeight);
     attackSlider_R.setBounds (880, 230, 80, smallKnob + 20);
-    
     labelRelease_R.setBounds (880, 310, 80, labelHeight);
     releaseSlider_R.setBounds (880, 330, 80, smallKnob + 20);
-
     labelBias_R.setBounds (rx, 340, 80, labelHeight);
     biasSlider_R.setBounds (rx, 360, 80, smallKnob + 20);
-    
     labelRectifier_R.setBounds (820, 430, 150, labelHeight);
     rectifierSlider_R.setBounds (820, 450, 80, smallKnob + 20);
-
     labelOutput_R.setBounds (rx, 460, 80, labelHeight);
     outputGainSlider_R.setBounds (rx, 480, 80, smallKnob + 20);
-
     labelSidechain_R.setBounds (730, 420, 100, labelHeight);
     sidechainSlider_R.setBounds (730, 440, 80, smallKnob + 20);
     
-    labelAirBass_R.setBounds (730, 520, 100, labelHeight);
-    airBassSlider_R.setBounds (730, 540, 80, smallKnob + 20);
+    // ТУМБЛЕР R
+    airBassSlider_R.setBounds (730, 520, 60, 80);
 
     // Мастер-секция
     int mx = 350;
     int mkW = 400 / 4;
-
     linkButton.setBounds (mx + 50, 580, 130, 24);
     midSideButton.setBounds (mx + 220, 580, 130, 24);
-
     labelMix.setBounds (mx, 620, mkW, labelHeight);
     mixSlider.setBounds (mx, 640, mkW, smallKnob + 20);
-
     labelWidth.setBounds (mx + mkW, 620, mkW, labelHeight);
     widthSlider.setBounds (mx + mkW, 640, mkW, smallKnob + 20);
-
     labelMono.setBounds (mx + mkW*2, 620, mkW, labelHeight);
     monoSlider.setBounds (mx + mkW*2, 640, mkW, smallKnob + 20);
-
     labelHeadroom.setBounds (mx + mkW*3, 620, mkW, labelHeight);
     headroomSlider.setBounds (mx + mkW*3, 640, mkW, smallKnob + 20);
 }
