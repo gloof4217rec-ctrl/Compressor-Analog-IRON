@@ -1,8 +1,8 @@
 #pragma once
-#include <JuceHeader.h>
+#include <juceHeader.h>
 #include "PluginProcessor.h"
 
-// === LookAndFeel для ручек с картинкой (101 кадр) ===
+// === 1. LookAndFeel для ручек с картинкой и цифрами ===
 class FilmstripLookAndFeel : public juce::LookAndFeel_V4
 {
 public:
@@ -16,16 +16,56 @@ public:
 
         if (filmstrip.isValid())
         {
-            int numFrames = 101; // 101 кадр, как вы посчитали
+            int numFrames = 101; // 101 кадр
             int frameHeight = filmstrip.getHeight() / numFrames;
             int frameWidth = filmstrip.getWidth();
-            
             int frameIndex = (int)std::round(sliderPos * (numFrames - 1));
+
+            bool hasLabels = slider.getProperties().contains("labels");
             
+            int drawX = x, drawY = y, drawW = width, drawH = height;
+            float textRadius = 0.0f;
+            
+            if (hasLabels)
+            {
+                int margin = 10;
+                drawW = juce::jmin(width, height) - margin * 2;
+                drawH = drawW;
+                drawX = x + (width - drawW) / 2;
+                drawY = y + (height - drawH) / 2;
+                textRadius = drawW / 2.0f + 8.0f;
+            }
+
             g.drawImage(filmstrip, 
-                        x, y, width, height,               
+                        drawX, drawY, drawW, drawH,               
                         0, frameIndex * frameHeight,       
                         frameWidth, frameHeight);          
+                        
+            if (hasLabels)
+            {
+                juce::String labelsStr = slider.getProperties()["labels"].toString();
+                juce::StringArray labels;
+                labels.addTokens(labelsStr, ",", "");
+                
+                int numLabels = labels.size();
+                if (numLabels > 1)
+                {
+                    g.setColour(juce::Colours::white.withAlpha(0.8f));
+                    g.setFont(10.0f);
+                    
+                    float centerX = drawX + drawW / 2.0f;
+                    float centerY = drawY + drawH / 2.0f;
+                    
+                    for (int i = 0; i < numLabels; ++i)
+                    {
+                        float angle = rotaryStartAngle + (float)i / (numLabels - 1) * (rotaryEndAngle - rotaryStartAngle);
+                        float textX = centerX + std::cos(angle) * textRadius;
+                        float textY = centerY + std::sin(angle) * textRadius;
+                        
+                        g.drawText(labels[i], textX - 10.0f, textY - 10.0f, 20.0f, 20.0f, juce::Justification::centred);
+                    }
+                }
+            }
         }
         else
         {
@@ -35,7 +75,7 @@ public:
     }
 };
 
-// === Улучшенный LookAndFeel для тумблера Tube Bias (LOW/MID/HIGH) ===
+// === 2. LookAndFeel для тумблера Tube Bias (LOW/MID/HIGH) ===
 class BiasSwitchLookAndFeel : public juce::LookAndFeel_V4
 {
 public:
@@ -48,11 +88,9 @@ public:
         auto bounds = slider.getLocalBounds().toFloat();
         auto centerX = bounds.getCentreX();
         
-        // Дорожка
         g.setColour(juce::Colour(0xff111111));
         g.fillRoundedRectangle(centerX - 5.0f, bounds.getY() + 10.0f, 10.0f, bounds.getHeight() - 20.0f, 5.0f);
         
-        // Рычажок (белый с черной полосой)
         float knobY = sliderPos; 
         juce::Rectangle<float> knobRect(centerX - 14.0f, knobY - 12.0f, 28.0f, 24.0f);
         
@@ -62,7 +100,6 @@ public:
         g.setColour(juce::Colours::black);
         g.drawLine(centerX, knobY, centerX, knobY + 6.0f, 2.0f);
         
-        // Текст (LOW / MID / HIGH)
         g.setColour(juce::Colours::white);
         g.setFont(10.0f);
         g.drawText("HIGH", bounds.removeFromTop(15), juce::Justification::centred);
@@ -71,7 +108,7 @@ public:
     }
 };
 
-// === LookAndFeel для 3-позиционного тумблера (Air/Tape) ===
+// === 3. LookAndFeel для 3-позиционного тумблера (Air/Tape) ===
 class ThreeWaySwitchLookAndFeel : public juce::LookAndFeel_V4
 {
 public:
@@ -104,7 +141,7 @@ public:
     }
 };
 
-// === LookAndFeel для кнопок с картинкой ===
+// === 4. LookAndFeel для кнопок с картинкой ===
 class CustomImageToggleLookAndFeel : public juce::LookAndFeel_V4
 {
 public:
@@ -134,7 +171,7 @@ public:
     }
 };
 
-// === Улучшенный Аналоговый VU-метр (Векторный) ===
+// === 5. Улучшенный Аналоговый VU-метр (Векторный) ===
 class AnalogVUMeter : public juce::Component
 {
 public:
@@ -162,7 +199,7 @@ public:
         float minAngle = juce::MathConstants<float>::pi * 1.2f;
         float maxAngle = juce::MathConstants<float>::pi * 1.8f;
 
-        // Красная зона (только для OUT)
+        // Красная зона
         if (currentMode > 0) {
             juce::Path redZone;
             float startAngle = minAngle + juce::jmap(0.0f, -20.0f, (currentMode == 1 ? 3.0f : 10.0f), 0.0f, 1.0f) * (maxAngle - minAngle);
@@ -244,6 +281,7 @@ private:
     int currentMode = 0;
 };
 
+// === 6. Главный редактор ===
 class IronCompressorAudioProcessorEditor : public juce::AudioProcessorEditor, public juce::Timer
 {
 public:
@@ -267,6 +305,7 @@ private:
     juce::ComboBox presetBox;
 
     juce::ToggleButton tmtEnableToggle { "" }; 
+    juce::Label labelTmtOn;
     juce::TextButton tmtModeButton{"A"};
     juce::TextButton tmtLeftBtn{"<"};
     juce::TextButton tmtRightBtn{">"};
@@ -285,7 +324,9 @@ private:
     juce::Label labelMix, labelWidth, labelMono, labelHeadroom;
 
     juce::ToggleButton linkButton { "" };
+    juce::Label labelLink;
     juce::ToggleButton midSideButton { "" };
+    juce::Label labelMidSide;
 
     using SliderAttachment = juce::AudioProcessorValueTreeState::SliderAttachment;
     using ComboBoxAttachment = juce::AudioProcessorValueTreeState::ComboBoxAttachment;
