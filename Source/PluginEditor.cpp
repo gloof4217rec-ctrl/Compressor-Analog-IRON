@@ -122,8 +122,8 @@ IronCompressorAudioProcessorEditor::IronCompressorAudioProcessorEditor (IronComp
 
     auto setupSlider = [this](juce::Slider& s, juce::Label& l, const juce::String& name) {
         s.setSliderStyle (juce::Slider::RotaryHorizontalVerticalDrag);
-        s.setTextBoxStyle (juce::TextBoxBelow, false, 60, 20);
-        s.setLookAndFeel(&filmstripLnf);
+        s.setTextBoxStyle (juce::Slider::TextBoxBelow, false, 60, 20); // ИСПРАВЛЕНО
+        s.setLookAndFeel(&filmstripLnf); 
         addAndMakeVisible (s);
         l.setText (name, juce::dontSendNotification);
         l.setJustificationType (juce::Justification::centred);
@@ -134,9 +134,9 @@ IronCompressorAudioProcessorEditor::IronCompressorAudioProcessorEditor (IronComp
 
     auto setupSteppedSlider = [this](juce::Slider& s, juce::Label& l, const juce::String& name, int numSteps) {
         s.setSliderStyle (juce::Slider::RotaryHorizontalVerticalDrag);
-        s.setTextBoxStyle (juce::Slider::NoTextBox, false, 0, 0); // Текст скрыт, мы выведем его в Label
-        s.setRange(0.0, (double)(numSteps - 1), 1.0); // Отщелкивание
-        s.setLookAndFeel(&filmstripLnf);
+        s.setTextBoxStyle (juce::Slider::NoTextBox, false, 0, 0); 
+        s.setRange(0.0, (double)(numSteps - 1), 1.0); 
+        s.setLookAndFeel(&filmstripLnf); 
         addAndMakeVisible (s);
         l.setText (name, juce::dontSendNotification);
         l.setJustificationType (juce::Justification::centred);
@@ -230,6 +230,7 @@ IronCompressorAudioProcessorEditor::IronCompressorAudioProcessorEditor (IronComp
     attLink = std::make_unique<ButtonAttachment>(audioProcessor.apvts, "link", linkButton);
     attMidSide = std::make_unique<ButtonAttachment>(audioProcessor.apvts, "midSide", midSideButton);
 
+    // ФИКС LINK
     linkButton.onClick = [this]() {
         if (!linkButton.getToggleState()) {
             auto copyParam = [&](const juce::String& idL, const juce::String& idR) {
@@ -403,10 +404,9 @@ void IronCompressorAudioProcessorEditor::resized()
     const int knobSize = 80;
     const int bigKnobSize = 120;
     
-    // Делаем метки чуть шире и выше, чтобы влезал текст со значением
     auto posKnob = [](juce::Label& l, juce::Slider& s, int x, int y, int w, int h) {
-        l.setBounds(x - 20, y, w + 40, 20); // Метка теперь выше и шире
-        s.setBounds(x, y + 20, w, h);       // Ручка сдвинута вниз
+        l.setBounds(x - 20, y, w + 40, 20); 
+        s.setBounds(x, y + 20, w, h);       
     };
 
     // 1. VU-МЕТРЫ
