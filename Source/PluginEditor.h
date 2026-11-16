@@ -1,5 +1,5 @@
 #pragma once
-#include <JuceHeader.h>
+#include <juceHeader.h>
 #include "PluginProcessor.h"
 
 // === Кастомный LookAndFeel для ступенчатых ручек ===
@@ -48,7 +48,7 @@ public:
     }
 };
 
-// === Кастомный LookAndFeel для трехпозиционного тумблера ===
+// === Кастомный LookAndFeel для трехпозиционного тумблера (Air/Tape) ===
 class ThreeWaySwitchLookAndFeel : public juce::LookAndFeel_V4
 {
 public:
@@ -61,27 +61,55 @@ public:
         auto bounds = slider.getLocalBounds().toFloat();
         auto centerX = bounds.getCentreX();
         
-        // Рисуем черную вертикальную дорожку
         g.setColour(juce::Colour(0xff111111));
         g.fillRoundedRectangle(centerX - 4.0f, bounds.getY() + 10.0f, 8.0f, bounds.getHeight() - 20.0f, 4.0f);
         
-        // Рисуем белый рычажок
         float knobY = sliderPos; 
         juce::Rectangle<float> knobRect(centerX - 12.0f, knobY - 10.0f, 24.0f, 20.0f);
         
         g.setColour(juce::Colours::white);
         g.fillRoundedRectangle(knobRect, 3.0f);
         
-        // Черная полоска на рычажке
         g.setColour(juce::Colours::black);
         g.drawLine(centerX, knobY, centerX, knobY + 6.0f, 2.0f);
         
-        // Текст (Air - Bypass - Tape)
         g.setColour(juce::Colours::white);
         g.setFont(10.0f);
         g.drawText("TAPE", bounds.removeFromTop(15), juce::Justification::centred);
         g.drawText("BYPASS", bounds.removeFromTop(15), juce::Justification::centred);
         g.drawText("AIR", bounds.removeFromBottom(15), juce::Justification::centred);
+    }
+};
+
+// === НОВЫЙ LookAndFeel для кнопок с картинкой ===
+class CustomImageToggleLookAndFeel : public juce::LookAndFeel_V4
+{
+public:
+    void drawToggleButton (juce::Graphics& g, juce::ToggleButton& button,
+                           bool shouldDrawButtonAsHighlighted, bool shouldDrawButtonAsDown) override
+    {
+        static juce::Image switchImg = juce::ImageFileFormat::loadFrom(
+            BinaryData::toggle_switch_png, 
+            BinaryData::toggle_switch_pngSize
+        );
+
+        if (switchImg.isValid())
+        {
+            int frameHeight = switchImg.getHeight() / 2;
+            int frameY = button.getToggleState() ? 0 : frameHeight;
+            
+            g.drawImage(switchImg, 
+                        button.getLocalBounds().toFloat(), 
+                        juce::RectanglePlacement::centred, 
+                        false, 
+                        false, 
+                        0, frameY, switchImg.getWidth(), frameHeight);
+        }
+        else
+        {
+            g.setColour(juce::Colours::grey);
+            g.fillRect(button.getLocalBounds());
+        }
     }
 };
 
@@ -149,13 +177,14 @@ private:
     
     SteppedSliderLookAndFeel steppedLnf;
     ThreeWaySwitchLookAndFeel switchLnf;
+    CustomImageToggleLookAndFeel imageToggleLnf;
 
     AnalogVUMeter vuMeter_L;
     AnalogVUMeter vuMeter_R;
     juce::ComboBox vuSwitch_L, vuSwitch_R;
     juce::ComboBox presetBox;
 
-    juce::ToggleButton tmtEnableToggle { "TMT ON" }; 
+    juce::ToggleButton tmtEnableToggle { "" }; 
     juce::TextButton tmtModeButton{"A"};
     juce::TextButton tmtLeftBtn{"<"};
     juce::TextButton tmtRightBtn{">"};
@@ -163,19 +192,18 @@ private:
     juce::Label tmtDisplay;
 
     juce::Slider thresholdSlider_L, inputGainSlider_L, outputGainSlider_L;
-    juce::Slider attackSlider_L, releaseSlider_L, biasSlider_L, rectifierSlider_L, sidechainSlider_L;
-    juce::Slider airBassSlider_L, airBassSlider_R; // Заменили ToggleButton на Slider
+    juce::Slider attackSlider_L, releaseSlider_L, biasSlider_L, rectifierSlider_L, sidechainSlider_L, airBassSlider_L;
     juce::Label labelThreshold_L, labelInput_L, labelOutput_L, labelAttack_L, labelRelease_L, labelBias_L, labelRectifier_L, labelSidechain_L;
 
     juce::Slider thresholdSlider_R, inputGainSlider_R, outputGainSlider_R;
-    juce::Slider attackSlider_R, releaseSlider_R, biasSlider_R, rectifierSlider_R, sidechainSlider_R;
+    juce::Slider attackSlider_R, releaseSlider_R, biasSlider_R, rectifierSlider_R, sidechainSlider_R, airBassSlider_R;
     juce::Label labelThreshold_R, labelInput_R, labelOutput_R, labelAttack_R, labelRelease_R, labelBias_R, labelRectifier_R, labelSidechain_R;
 
     juce::Slider mixSlider, widthSlider, monoSlider, headroomSlider;
     juce::Label labelMix, labelWidth, labelMono, labelHeadroom;
 
-    juce::ToggleButton linkButton { "Link L/R" };
-    juce::ToggleButton midSideButton { "M/S Mode" };
+    juce::ToggleButton linkButton { "" };
+    juce::ToggleButton midSideButton { "" };
 
     using SliderAttachment = juce::AudioProcessorValueTreeState::SliderAttachment;
     using ComboBoxAttachment = juce::AudioProcessorValueTreeState::ComboBoxAttachment;
