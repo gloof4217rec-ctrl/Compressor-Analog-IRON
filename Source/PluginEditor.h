@@ -2,6 +2,32 @@
 #include <JuceHeader.h>
 #include "PluginProcessor.h"
 
+// === LookAndFeel с тенями для текста ===
+class ShadowLabelLookAndFeel : public juce::LookAndFeel_V4
+{
+public:
+    void drawLabel(juce::Graphics& g, juce::Label& label) override
+    {
+        g.fillAll(label.findColour(juce::Label::backgroundColourId));
+        if (!label.isBeingEdited())
+        {
+            auto alpha = label.isEnabled() ? 1.0f : 0.5f;
+            const juce::Font font(label.getFont());
+            auto textArea = label.getBorderSize().subtractedFrom(label.getLocalBounds());
+            
+            // Рисуем тень
+            g.setColour(juce::Colours::black.withAlpha(0.8f));
+            g.setFont(font);
+            g.drawFittedText(label.getText(), textArea.translated(1, 1), label.getJustificationType(), 1, label.getMinimumHorizontalScale());
+            
+            // Рисуем сам текст
+            g.setColour(label.findColour(juce::Label::textColourId).withMultipliedAlpha(alpha));
+            g.setFont(font);
+            g.drawFittedText(label.getText(), textArea, label.getJustificationType(), 1, label.getMinimumHorizontalScale());
+        }
+    }
+};
+
 // === LookAndFeel для ручек с картинкой и цифрами ===
 class FilmstripLookAndFeel : public juce::LookAndFeel_V4
 {
@@ -24,12 +50,12 @@ public:
             bool hasLabels = slider.getProperties().contains("labels");
             
             int size = juce::jmin(width, height);
-            int drawW = hasLabels ? size - 20 : size; // Оставляем место для текста
-            int drawH = hasLabels ? size - 20 : size;
+            int drawW = hasLabels ? size - 24 : size;
+            int drawH = hasLabels ? size - 24 : size;
             int drawX = x + (width - drawW) / 2;
             int drawY = y + (height - drawH) / 2;
 
-            float textRadius = drawW / 2.0f + 10.0f;
+            float textRadius = drawW / 2.0f + 12.0f;
 
             g.drawImage(filmstrip, drawX, drawY, drawW, drawH, 0, frameIndex * frameHeight, frameWidth, frameHeight);          
                         
@@ -41,8 +67,7 @@ public:
                 int numLabels = labels.size();
                 if (numLabels > 1)
                 {
-                    g.setColour(juce::Colours::white.withAlpha(0.9f));
-                    g.setFont(9.0f); // Уменьшили шрифт, чтобы влезали длинные слова
+                    g.setFont(11.0f); // Чуть больше шрифт
                     float centerX = drawX + drawW / 2.0f;
                     float centerY = drawY + drawH / 2.0f;
                     
@@ -51,6 +76,12 @@ public:
                         float angle = rotaryStartAngle + (float)i / (numLabels - 1) * (rotaryEndAngle - rotaryStartAngle);
                         float textX = centerX + std::cos(angle) * textRadius;
                         float textY = centerY + std::sin(angle) * textRadius;
+                        
+                        // Тень
+                        g.setColour(juce::Colours::black.withAlpha(0.8f));
+                        g.drawText(labels[i], textX - 15.0f + 1, textY - 10.0f + 1, 30.0f, 20.0f, juce::Justification::centred);
+                        // Текст
+                        g.setColour(juce::Colours::white);
                         g.drawText(labels[i], textX - 15.0f, textY - 10.0f, 30.0f, 20.0f, juce::Justification::centred);
                     }
                 }
@@ -64,7 +95,7 @@ public:
     }
 };
 
-// === LookAndFeel для тумблера Tube Bias (LOW/MID/HIGH) ===
+// === LookAndFeel для тумблера Tube Bias ===
 class BiasSwitchLookAndFeel : public juce::LookAndFeel_V4
 {
 public:
@@ -87,15 +118,18 @@ public:
         g.setColour(juce::Colours::black);
         g.drawLine(centerX, knobY, centerX, knobY + 6.0f, 2.0f);
         
+        g.setFont(11.0f);
+        g.setColour(juce::Colours::black.withAlpha(0.8f));
+        g.drawText("HIGH", bounds.getX() + 1, bounds.getY() + 1, bounds.getWidth(), 15, juce::Justification::centred);
+        g.drawText("LOW", bounds.getX() + 1, bounds.getBottom() - 16, bounds.getWidth(), 15, juce::Justification::centred);
+        
         g.setColour(juce::Colours::white);
-        g.setFont(9.0f);
-        // Рисуем текст строго по краям, чтобы не налезал
-        g.drawText("HIGH", bounds.removeFromTop(15), juce::Justification::centred);
-        g.drawText("LOW", bounds.removeFromBottom(15), juce::Justification::centred);
+        g.drawText("HIGH", bounds.getX(), bounds.getY(), bounds.getWidth(), 15, juce::Justification::centred);
+        g.drawText("LOW", bounds.getX(), bounds.getBottom() - 15, bounds.getWidth(), 15, juce::Justification::centred);
     }
 };
 
-// === LookAndFeel для 3-позиционного тумблера (Air/Tape) ===
+// === LookAndFeel для тумблера Air/Tape ===
 class ThreeWaySwitchLookAndFeel : public juce::LookAndFeel_V4
 {
 public:
@@ -118,11 +152,16 @@ public:
         g.setColour(juce::Colours::black);
         g.drawLine(centerX, knobY, centerX, knobY + 6.0f, 2.0f);
         
+        g.setFont(10.0f);
+        g.setColour(juce::Colours::black.withAlpha(0.8f));
+        g.drawText("TAPE", bounds.getX() + 1, bounds.getY() + 1, bounds.getWidth(), 15, juce::Justification::centred);
+        g.drawText("BYPASS", bounds.getX() + 1, bounds.getCentreY() - 9, bounds.getWidth(), 15, juce::Justification::centred);
+        g.drawText("AIR", bounds.getX() + 1, bounds.getBottom() - 16, bounds.getWidth(), 15, juce::Justification::centred);
+        
         g.setColour(juce::Colours::white);
-        g.setFont(8.5f);
-        g.drawText("TAPE", bounds.removeFromTop(15), juce::Justification::centred);
-        g.drawText("BYPASS", bounds.removeFromTop(bounds.getHeight() / 2.0f + 5), juce::Justification::centred);
-        g.drawText("AIR", bounds.removeFromBottom(15), juce::Justification::centred);
+        g.drawText("TAPE", bounds.getX(), bounds.getY(), bounds.getWidth(), 15, juce::Justification::centred);
+        g.drawText("BYPASS", bounds.getX(), bounds.getCentreY() - 10, bounds.getWidth(), 15, juce::Justification::centred);
+        g.drawText("AIR", bounds.getX(), bounds.getBottom() - 15, bounds.getWidth(), 15, juce::Justification::centred);
     }
 };
 
@@ -144,9 +183,7 @@ public:
             int frameY = button.getToggleState() ? 0 : frameHeight;
             auto bounds = button.getLocalBounds();
             
-            g.drawImage(switchImg, 
-                        bounds.getX(), bounds.getY(), bounds.getWidth(), bounds.getHeight(),
-                        0, frameY, switchImg.getWidth(), frameHeight);
+            g.drawImage(switchImg, bounds.getX(), bounds.getY(), bounds.getWidth(), bounds.getHeight(), 0, frameY, switchImg.getWidth(), frameHeight);
         }
         else
         {
@@ -181,7 +218,6 @@ public:
             
             auto bounds = getLocalBounds().toFloat();
             
-            // Сохраняем пропорции
             float targetW = bounds.getWidth();
             float targetH = bounds.getHeight();
             float aspect = (float)frameWidth / (float)frameHeight;
@@ -225,6 +261,7 @@ public:
 private:
     IronCompressorAudioProcessor& audioProcessor;
     
+    ShadowLabelLookAndFeel shadowLnf;
     FilmstripLookAndFeel filmstripLnf;
     BiasSwitchLookAndFeel biasLnf;
     ThreeWaySwitchLookAndFeel switchLnf;
