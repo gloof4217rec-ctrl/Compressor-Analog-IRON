@@ -233,7 +233,6 @@ void IronCompressorAudioProcessor::processBlock (juce::AudioBuffer<float>& buffe
     float maxOutL = 0.0f;
     float maxOutR = 0.0f;
 
-    // ИСПРАВЛЕНИЕ: Правильный расчет коэффициента опто-лимитера (10 мс)
     float optoTimeSec = 0.01f; 
     float optoCoeff = 1.0f - std::exp(-1.0f / (optoTimeSec * (float)osSr));
 
@@ -294,7 +293,6 @@ void IronCompressorAudioProcessor::processBlock (juce::AudioBuffer<float>& buffe
         float cvL = (envL > threshLinL) ? juce::jlimit(0.0f, 1.0f, ((envL / threshLinL) - 1.0f) * biasMultL) : 0.0f;
         float cvR = (envR > threshLinR) ? juce::jlimit(0.0f, 1.0f, ((envR / threshLinR) - 1.0f) * biasMultR) : 0.0f;
 
-        // ИСПРАВЛЕНО: Используем правильный optoCoeff
         optoState[0] += (cvL - optoState[0]) * optoCoeff;
         optoState[1] += (cvR - optoState[1]) * optoCoeff;
         
@@ -331,6 +329,10 @@ void IronCompressorAudioProcessor::processBlock (juce::AudioBuffer<float>& buffe
 
         outL = finalMid + finalSide;
         outR = finalMid - finalSide;
+
+        // 👇 ИСПРАВЛЕНИЕ: Финальный Soft-Clipper, чтобы убрать цифровой шум при +12 дБ 👇
+        outL = std::tanh(outL);
+        outR = std::tanh(outR);
 
         maxOutL = juce::jmax(maxOutL, std::abs(outL));
         maxOutR = juce::jmax(maxOutR, std::abs(outR));
