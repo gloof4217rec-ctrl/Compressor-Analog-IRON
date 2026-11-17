@@ -415,7 +415,7 @@ void IronCompressorAudioProcessorEditor::paint (juce::Graphics& g)
     g.drawText ("Parallel Dual-Tube Compressor", 160, 15, 300, 30, juce::Justification::centredLeft);
     
     g.setColour(juce::Colour(0x44000000));
-    g.fillRoundedRectangle(410.0f, 70.0f, 330.0f, 140.0f, 5.0f);
+    g.fillRoundedRectangle(400.0f, 70.0f, 350.0f, 140.0f, 5.0f);
 }
 
 void IronCompressorAudioProcessorEditor::resized()
@@ -425,85 +425,86 @@ void IronCompressorAudioProcessorEditor::resized()
 
     presetBox.setBounds (475, 15, 160, 30);
 
-    const int knobSize = 80;
-    const int bigKnobSize = 110;
+    // УВЕЛИЧИЛИ РАЗМЕР ДЛЯ СЛАЙДЕРОВ, ЧТОБЫ ТЕКСТ ВЛЕЗАЛ
+    const int knobSize = 100;
+    const int bigKnobSize = 130;
 
-    // УВЕЛИЧЕНЫ ОТСТУПЫ ДЛЯ ТЕКСТА, РУЧКИ ОПУЩЕНЫ ВНИЗ
+    // ОПУСТИЛИ РУЧКИ И ДАЛИ МЕСТО ДЛЯ ТЕКСТА
     auto posKnob = [](juce::Label& l, juce::Slider& s, int x, int y, int w, int h) {
         l.setBounds(x - 30, y, w + 60, 20); 
-        s.setBounds(x, y + 25, w, h);       
+        s.setBounds(x, y + 22, w, h);       
     };
 
     // ==========================================
     // ЦЕНТРАЛЬНАЯ СЕКЦИЯ (Метры, TMT, Мастер)
     // ==========================================
-    vuMeter_L.setBounds (420, 80, 150, 110);
-    vuMeter_R.setBounds (580, 80, 150, 110);
+    vuMeter_L.setBounds (410, 80, 160, 120);
+    vuMeter_R.setBounds (570, 80, 160, 120);
 
     // Threshold в центр
-    posKnob(labelThreshold_L, thresholdSlider_L, 400, 220, bigKnobSize, bigKnobSize);
-    posKnob(labelThreshold_R, thresholdSlider_R, 640, 220, bigKnobSize, bigKnobSize);
+    posKnob(labelThreshold_L, thresholdSlider_L, 390, 230, bigKnobSize, bigKnobSize);
+    posKnob(labelThreshold_R, thresholdSlider_R, 630, 230, bigKnobSize, bigKnobSize);
 
     // Выравниваем TMT идеально по центру
-    int cx = 575; 
-    labelTmtOn.setBounds(cx - 20, 380, 40, 20);
-    tmtEnableToggle.setBounds (cx - 40, 400, 80, 30); 
+    int cx = 565; 
+    labelTmtOn.setBounds(cx - 20, 400, 40, 20);
+    tmtEnableToggle.setBounds (cx - 40, 420, 80, 30); 
 
-    tmtModeButton.setBounds (cx - 110, 440, 40, 24);
-    tmtLeftBtn.setBounds (cx - 65, 440, 30, 24);
-    tmtDisplay.setBounds (cx - 30, 440, 60, 24);
-    tmtRightBtn.setBounds (cx + 35, 440, 30, 24);
-    tmtRandomBtn.setBounds (cx + 70, 440, 40, 24);
+    tmtModeButton.setBounds (cx - 110, 460, 40, 24);
+    tmtLeftBtn.setBounds (cx - 65, 460, 30, 24);
+    tmtDisplay.setBounds (cx - 30, 460, 60, 24);
+    tmtRightBtn.setBounds (cx + 35, 460, 30, 24);
+    tmtRandomBtn.setBounds (cx + 70, 460, 40, 24);
 
-    labelLink.setBounds (460, 500, 80, 20);
-    linkButton.setBounds (460, 520, 80, 24);
+    labelLink.setBounds (450, 520, 80, 20);
+    linkButton.setBounds (450, 540, 80, 24);
 
-    labelMidSide.setBounds (620, 500, 80, 20);
-    midSideButton.setBounds (620, 520, 80, 24);
+    labelMidSide.setBounds (610, 520, 80, 20);
+    midSideButton.setBounds (610, 540, 80, 24);
 
-    // Мастер (снизу по центру, подняли выше)
-    posKnob(labelMix, mixSlider, 420, 640, knobSize, knobSize);
-    posKnob(labelWidth, widthSlider, 520, 640, knobSize, knobSize);
-    posKnob(labelMono, monoSlider, 620, 640, knobSize, knobSize);
-    posKnob(labelHeadroom, headroomSlider, 720, 640, knobSize, knobSize);
+    // Мастер (снизу по центру)
+    posKnob(labelMix, mixSlider, 400, 650, knobSize, knobSize);
+    posKnob(labelWidth, widthSlider, 500, 650, knobSize, knobSize);
+    posKnob(labelMono, monoSlider, 600, 650, knobSize, knobSize);
+    posKnob(labelHeadroom, headroomSlider, 700, 650, knobSize, knobSize);
 
     // ==========================================
-    // ЛЕВЫЙ КАНАЛ (x: 20, 150, 280)
+    // ЛЕВЫЙ КАНАЛ (x: 20, 140, 260)
     // ==========================================
     int lx = 20;
     // Ряд 1
     posKnob(labelInput_L, inputGainSlider_L, lx, 100, knobSize, knobSize);
-    posKnob(labelAttack_L, attackSlider_L, lx + 130, 100, knobSize, knobSize);
-    posKnob(labelRelease_L, releaseSlider_L, lx + 260, 100, knobSize, knobSize);
+    posKnob(labelAttack_L, attackSlider_L, lx + 120, 100, knobSize, knobSize);
+    posKnob(labelRelease_L, releaseSlider_L, lx + 240, 100, knobSize, knobSize);
     
     // Ряд 2
-    posKnob(labelOutput_L, outputGainSlider_L, lx, 240, knobSize, knobSize);
-    labelBias_L.setBounds(lx + 130, 240, 80, 20);
-    biasSlider_L.setBounds(lx + 140, 270, 60, 90);
-    posKnob(labelRectifier_L, rectifierSlider_L, lx + 260, 240, knobSize, knobSize);
+    posKnob(labelOutput_L, outputGainSlider_L, lx, 250, knobSize, knobSize);
+    labelBias_L.setBounds(lx + 120, 250, 80, 20);
+    biasSlider_L.setBounds(lx + 130, 275, 60, 100);
+    posKnob(labelRectifier_L, rectifierSlider_L, lx + 240, 250, knobSize, knobSize);
 
     // Ряд 3
-    posKnob(labelSidechain_L, sidechainSlider_L, lx, 400, knobSize, knobSize);
-    labelAirBass_L.setBounds(lx + 130, 400, 100, 20);
-    airBassSlider_L.setBounds(lx + 140, 430, 60, 90);
+    posKnob(labelSidechain_L, sidechainSlider_L, lx, 420, knobSize, knobSize);
+    labelAirBass_L.setBounds(lx + 120, 420, 100, 20);
+    airBassSlider_L.setBounds(lx + 130, 445, 60, 100);
 
     // ==========================================
-    // ПРАВЫЙ КАНАЛ (x: 1150 - 20 - 80 - 260 = 790)
+    // ПРАВЫЙ КАНАЛ (x: 1150 - 20 - 100 - 240 = 790)
     // ==========================================
-    int rx = 1150 - 20 - knobSize; // 1050
+    int rx = 1150 - 20 - knobSize; // 1030
     // Ряд 1
     posKnob(labelRelease_R, releaseSlider_R, rx, 100, knobSize, knobSize);
-    posKnob(labelAttack_R, attackSlider_R, rx - 130, 100, knobSize, knobSize);
-    posKnob(labelInput_R, inputGainSlider_R, rx - 260, 100, knobSize, knobSize);
+    posKnob(labelAttack_R, attackSlider_R, rx - 120, 100, knobSize, knobSize);
+    posKnob(labelInput_R, inputGainSlider_R, rx - 240, 100, knobSize, knobSize);
 
     // Ряд 2
-    posKnob(labelRectifier_R, rectifierSlider_R, rx, 240, knobSize, knobSize);
-    labelBias_R.setBounds(rx - 130, 240, 80, 20);
-    biasSlider_R.setBounds(rx - 120, 270, 60, 90);
-    posKnob(labelOutput_R, outputGainSlider_R, rx - 260, 240, knobSize, knobSize);
+    posKnob(labelRectifier_R, rectifierSlider_R, rx, 250, knobSize, knobSize);
+    labelBias_R.setBounds(rx - 120, 250, 80, 20);
+    biasSlider_R.setBounds(rx - 110, 275, 60, 100);
+    posKnob(labelOutput_R, outputGainSlider_R, rx - 240, 250, knobSize, knobSize);
 
     // Ряд 3
-    labelAirBass_R.setBounds(rx - 130, 400, 100, 20);
-    airBassSlider_R.setBounds(rx - 120, 430, 60, 90);
-    posKnob(labelSidechain_R, sidechainSlider_R, rx - 260, 400, knobSize, knobSize);
+    labelAirBass_R.setBounds(rx - 120, 420, 100, 20);
+    airBassSlider_R.setBounds(rx - 110, 445, 60, 100);
+    posKnob(labelSidechain_R, sidechainSlider_R, rx - 240, 420, knobSize, knobSize);
 }
