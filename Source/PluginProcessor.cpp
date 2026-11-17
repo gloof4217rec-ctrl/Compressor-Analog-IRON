@@ -312,14 +312,15 @@ void IronCompressorAudioProcessor::processBlock (juce::AudioBuffer<float>& buffe
         float outR = (procR * (1.0f - curMix)) + (wetR * curMix);
 
         if (isMidSide) {
-            float outMid = outL * outputGainSmoothed[0].getNextValue();
-            float outSide = outR * outputGainSmoothed[1].getNextValue();
+            float outMid = outL;
+            float outSide = outR;
             outL = outMid + outSide;
             outR = outMid - outSide;
-        } else {
-            outL *= outputGainSmoothed[0].getNextValue();
-            outR *= outputGainSmoothed[1].getNextValue();
         }
+        
+        // ИСПРАВЛЕНИЕ ШУМА: Применяем Output Gain к финальному L/R
+        outL *= outputGainSmoothed[0].getNextValue();
+        outR *= outputGainSmoothed[1].getNextValue();
 
         float finalMid = (outL + outR) * 0.5f;
         float finalSide = (outL - outR) * 0.5f;
@@ -330,7 +331,7 @@ void IronCompressorAudioProcessor::processBlock (juce::AudioBuffer<float>& buffe
         outL = finalMid + finalSide;
         outR = finalMid - finalSide;
 
-        // 👇 ИСПРАВЛЕНИЕ: Финальный Soft-Clipper, чтобы убрать цифровой шум при +12 дБ 👇
+        // Финальный Soft-Clipper, чтобы убрать цифровой шум при +12 дБ
         outL = std::tanh(outL);
         outR = std::tanh(outR);
 
