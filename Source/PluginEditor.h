@@ -26,7 +26,7 @@ public:
     }
 };
 
-// === LookAndFeel для ручек ===
+// === LookAndFeel для ручек с картинкой и цифрами ===
 class FilmstripLookAndFeel : public juce::LookAndFeel_V4
 {
 public:
@@ -47,13 +47,15 @@ public:
 
             bool hasLabels = slider.getProperties().contains("labels");
             
+            // ВАЖНО: Делаем картинку ручки меньше, чтобы освободить место для цифр
             int size = juce::jmin(width, height);
-            int drawW = hasLabels ? size - 24 : size;
-            int drawH = hasLabels ? size - 24 : size;
+            int drawW = hasLabels ? size - 36 : size;
+            int drawH = hasLabels ? size - 36 : size;
             int drawX = x + (width - drawW) / 2;
             int drawY = y + (height - drawH) / 2;
 
-            float textRadius = drawW / 2.0f + 14.0f;
+            // Радиус для текста. Теперь он будет точно внутри рамки слайдера.
+            float textRadius = drawW / 2.0f + 15.0f;
 
             g.drawImage(filmstrip, drawX, drawY, drawW, drawH, 0, frameIndex * frameHeight, frameWidth, frameHeight);          
                         
@@ -76,9 +78,9 @@ public:
                         float textY = centerY + std::sin(angle) * textRadius;
                         
                         g.setColour(juce::Colours::black);
-                        g.drawText(labels[i], textX - 20.0f + 1, textY - 10.0f + 1, 40.0f, 20.0f, juce::Justification::centred);
+                        g.drawText(labels[i], textX - 15.0f + 1, textY - 10.0f + 1, 30.0f, 20.0f, juce::Justification::centred);
                         g.setColour(juce::Colours::white);
-                        g.drawText(labels[i], textX - 20.0f, textY - 10.0f, 40.0f, 20.0f, juce::Justification::centred);
+                        g.drawText(labels[i], textX - 15.0f, textY - 10.0f, 30.0f, 20.0f, juce::Justification::centred);
                     }
                 }
             }
@@ -91,7 +93,7 @@ public:
     }
 };
 
-// === LookAndFeel для тумблера Bias (HIGH/LOW) ===
+// === LookAndFeel для тумблера Bias ===
 class BiasSwitchLookAndFeel : public juce::LookAndFeel_V4
 {
 public:
@@ -104,7 +106,7 @@ public:
         auto centerX = bounds.getCentreX();
         
         g.setColour(juce::Colour(0xff111111));
-        g.fillRoundedRectangle(centerX - 5.0f, bounds.getY() + 25.0f, 10.0f, bounds.getHeight() - 50.0f, 5.0f);
+        g.fillRoundedRectangle(centerX - 5.0f, bounds.getY() + 20.0f, 10.0f, bounds.getHeight() - 40.0f, 5.0f);
         
         float knobY = sliderPos; 
         juce::Rectangle<float> knobRect(centerX - 14.0f, knobY - 12.0f, 28.0f, 24.0f);
@@ -114,7 +116,7 @@ public:
         g.setColour(juce::Colours::black);
         g.drawLine(centerX, knobY, centerX, knobY + 6.0f, 2.0f);
         
-        g.setFont(11.0f);
+        g.setFont(10.0f);
         g.setColour(juce::Colours::white);
         g.drawText("HIGH", bounds.getX(), bounds.getY(), bounds.getWidth(), 20, juce::Justification::centred);
         g.drawText("LOW", bounds.getX(), bounds.getBottom() - 20, bounds.getWidth(), 20, juce::Justification::centred);
@@ -134,7 +136,7 @@ public:
         auto centerX = bounds.getCentreX();
         
         g.setColour(juce::Colour(0xff111111));
-        g.fillRoundedRectangle(centerX - 5.0f, bounds.getY() + 25.0f, 10.0f, bounds.getHeight() - 50.0f, 5.0f);
+        g.fillRoundedRectangle(centerX - 5.0f, bounds.getY() + 20.0f, 10.0f, bounds.getHeight() - 40.0f, 5.0f);
         
         float knobY = sliderPos; 
         juce::Rectangle<float> knobRect(centerX - 14.0f, knobY - 12.0f, 28.0f, 24.0f);
@@ -144,7 +146,7 @@ public:
         g.setColour(juce::Colours::black);
         g.drawLine(centerX, knobY, centerX, knobY + 6.0f, 2.0f);
         
-        g.setFont(10.0f);
+        g.setFont(9.0f);
         g.setColour(juce::Colours::white);
         g.drawText("TAPE", bounds.getX(), bounds.getY(), bounds.getWidth(), 20, juce::Justification::centred);
         g.drawText("BYPASS", bounds.getX(), bounds.getCentreY() - 10, bounds.getWidth(), 20, juce::Justification::centred);
@@ -152,7 +154,7 @@ public:
     }
 };
 
-// === LookAndFeel для кнопок ===
+// === LookAndFeel для кнопок с картинкой ===
 class CustomImageToggleLookAndFeel : public juce::LookAndFeel_V4
 {
 public:
